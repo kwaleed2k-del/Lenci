@@ -734,6 +734,34 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
              parts.push({ inlineData: { mimeType, data } });
         }
 
+        // Add settings as a separate part for apparel mode (for server-side AI processing)
+        if (params.studioMode === 'apparel') {
+            parts.push({ 
+                settings: {
+                    shotType: apparelControls.shotType,
+                    cameraAngle: apparelControls.cameraAngle,
+                    focalLength: apparelControls.focalLength,
+                    aperture: apparelControls.aperture,
+                    lighting: scene.lighting,
+                    lightingDirection: apparelControls.lightingDirection,
+                    lightQuality: apparelControls.lightQuality,
+                    catchlightStyle: apparelControls.catchlightStyle,
+                    background: scene.background,
+                    sceneProps: scene.sceneProps,
+                    environmentalEffects: scene.environmentalEffects,
+                    expression: apparelControls.expression,
+                    hairStyle: apparelControls.hairStyle,
+                    makeupStyle: apparelControls.makeupStyle,
+                    colorGrade: apparelControls.colorGrade,
+                    isHyperRealismEnabled: apparelControls.isHyperRealismEnabled,
+                    cinematicLook: apparelControls.cinematicLook,
+                    fabric: apparelControls.fabric,
+                    garmentStyling: apparelControls.garmentStyling,
+                    customPrompt: apparelControls.customPrompt,
+                    negativePrompt: apparelControls.negativePrompt
+                }
+            });
+        }
 
         return { parts };
     }

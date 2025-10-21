@@ -1,22 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Wand2, ArrowRight, Command, UserPlus } from 'lucide-react';
 import { CreateUserForm } from '../auth/CreateUserForm';
+import { BrandLogo } from '../shared/BrandLogo';
 
 // --- Reusable Components ---
 
-const LogoMarquee: React.FC = () => (
-    <div className="relative w-full overflow-hidden py-12 bg-zinc-950">
-        <div className="absolute inset-0 z-10 bg-gradient-to-r from-zinc-950 via-transparent to-zinc-950"></div>
-        <div className="flex animate-marquee-infinite">
-            {Array(6).fill(["Momentum", "Quantum", "Apex", "Zenith", "Catalyst", "Evolve", "Vertex"]).flat().map((name, index) => (
-                <div key={index} className="flex-shrink-0 flex items-center gap-2 mx-8">
-                    <Command size={20} className="text-zinc-600" />
-                    <span className="font-semibold text-xl text-zinc-600">{name}</span>
-                </div>
-            ))}
+const LogoMarquee: React.FC = () => {
+    const brands = [
+        { name: "Nike", logo: "https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg" },
+        { name: "Adidas", logo: "https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg" },
+        { name: "Zara", logo: "https://upload.wikimedia.org/wikipedia/commons/f/fd/Zara_Logo.svg" },
+        { name: "H&M", logo: "https://upload.wikimedia.org/wikipedia/commons/5/53/H%26M-Logo.svg" },
+        { name: "Gucci", logo: "https://upload.wikimedia.org/wikipedia/commons/4/40/Gucci_Logo.svg" },
+        { name: "Prada", logo: "https://upload.wikimedia.org/wikipedia/commons/4/43/Prada_logo.svg" },
+    ];
+    
+    return (
+        <div className="relative w-full overflow-hidden py-16 bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950">
+            <div className="text-center mb-8">
+                <p className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Trusted by leading fashion brands</p>
+            </div>
+            <div className="absolute inset-0 z-10 bg-gradient-to-r from-zinc-950 via-transparent to-zinc-950"></div>
+            <div className="flex animate-marquee-infinite">
+                {Array(8).fill(brands).flat().map((brand, index) => (
+                    <div key={index} className="flex-shrink-0 flex items-center justify-center mx-12 opacity-60 hover:opacity-100 transition-all duration-300 brightness-150 hover:brightness-200">
+                        <img src={brand.logo} alt={brand.name} className="h-10 w-auto object-contain filter invert" onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                                const span = document.createElement('span');
+                                span.className = 'font-bold text-2xl text-zinc-400';
+                                span.textContent = brand.name;
+                                parent.appendChild(span);
+                            }
+                        }} />
+                    </div>
+                ))}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 // --- Page Sections (Overhauled) ---
 
@@ -34,10 +58,10 @@ const Header: React.FC<{ onShowCreateUser: () => void }> = ({ onShowCreateUser }
     return (
         <header className={`fixed top-0 left-0 right-0 px-4 sm:px-6 py-4 flex items-center justify-between z-50 transition-all duration-300 ${scrolled ? 'bg-zinc-950/70 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'}`}>
             <a href="/" className="flex items-center gap-3 group">
-                <div className={`p-2 rounded-lg transition-all duration-300 ${scrolled ? 'bg-zinc-800/50 group-hover:bg-violet-600/20 border border-zinc-700/50 group-hover:border-violet-500/30' : 'bg-transparent'}`}>
-                    <Wand2 className="text-zinc-300 group-hover:text-violet-400 transition-colors duration-300" size={22} />
+                <div className="transition-all duration-300">
+                    <BrandLogo width={40} height={40} src="https://i.ibb.co/rfR90C6Z/Siyada-Tech-Logo-with-Blue-and-Green-Palette.png" />
                 </div>
-                <h1 className="text-xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-zinc-100 to-zinc-400">Virtual Studio</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-zinc-100 to-zinc-400">Siyada Studio</h1>
             </a>
             <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-zinc-300">
                 <a href="#features" className="hover:text-white transition-colors">Features</a>
@@ -60,30 +84,65 @@ const Header: React.FC<{ onShowCreateUser: () => void }> = ({ onShowCreateUser }
 
 const HeroSection: React.FC<{ onShowCreateUser: () => void }> = ({ onShowCreateUser }) => (
     <section className="relative h-screen min-h-[700px] flex items-center justify-center text-center overflow-hidden">
-        <video 
-            src="https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4"
-            autoPlay loop muted playsInline
-            className="absolute top-0 left-0 w-full h-full object-cover z-0 opacity-20"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950 via-zinc-950/80 to-zinc-950 z-10"></div>
+        {/* Animated gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-violet-950/10 to-blue-950/10 z-0"></div>
+        
+        {/* Subtle animated orbs */}
+        <div className="absolute top-20 left-10 w-72 h-72 bg-violet-600/10 rounded-full blur-3xl animate-pulse z-0"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse delay-1000 z-0"></div>
+        <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-green-600/8 rounded-full blur-3xl animate-pulse delay-500 z-0"></div>
+        
+        {/* Floating text elements */}
+        <div className="absolute top-1/4 left-1/4 text-6xl font-bold text-violet-600/5 z-0 animate-float-slow">AI</div>
+        <div className="absolute top-1/3 right-1/3 text-7xl font-bold text-blue-600/5 z-0 animate-float-slow delay-1000">FASHION</div>
+        <div className="absolute bottom-1/4 left-1/3 text-5xl font-bold text-green-600/5 z-0 animate-float-slow delay-500">STUDIO</div>
+        <div className="absolute top-2/3 right-1/4 text-6xl font-bold text-violet-600/5 z-0 animate-float-slow delay-700">DESIGN</div>
+        
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.03)_1px,transparent_1px)] bg-[size:100px_100px] z-0"></div>
+        
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/50 via-zinc-950/70 to-zinc-950 z-10"></div>
         
         <div className="relative z-20 px-4 animate-float-in">
-             <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-zinc-400 leading-tight">
+            {/* MASSIVE Siyada Logo - No Background */}
+            <div className="mb-12 flex justify-center">
+                <div className="hover:scale-105 transition-transform duration-500">
+                    <BrandLogo width={350} height={350} src="https://i.ibb.co/rfR90C6Z/Siyada-Tech-Logo-with-Blue-and-Green-Palette.png" />
+                </div>
+            </div>
+            
+             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white via-violet-200 to-blue-200 leading-tight drop-shadow-2xl">
                 The End of the Photoshoot.
             </h1>
-            <p className="max-w-2xl mx-auto mt-6 text-lg md:text-xl text-zinc-400">
+            <p className="max-w-2xl mx-auto mt-6 text-lg md:text-xl text-zinc-300 font-medium">
                 Generate world-class, commercially-ready visuals for your brand—on-model, on-product, on-demand.
             </p>
+            
+            {/* Feature badges */}
+            <div className="flex flex-wrap justify-center gap-3 mt-8">
+                <span className="px-4 py-2 bg-violet-600/10 border border-violet-500/20 rounded-full text-sm text-violet-300 font-semibold backdrop-blur-sm">
+                    ✨ AI-Powered
+                </span>
+                <span className="px-4 py-2 bg-blue-600/10 border border-blue-500/20 rounded-full text-sm text-blue-300 font-semibold backdrop-blur-sm">
+                    🚀 Instant Results
+                </span>
+                <span className="px-4 py-2 bg-green-600/10 border border-green-500/20 rounded-full text-sm text-green-300 font-semibold backdrop-blur-sm">
+                    💎 Studio Quality
+                </span>
+            </div>
+            
             <div className="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
                 <button 
                     onClick={onShowCreateUser}
-                    className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 h-12 px-8 text-base font-semibold text-white rounded-lg transition-all duration-300 ease-in-out hover:scale-105 active:scale-100 shadow-button-glow-pro hover:shadow-button-glow-pro-hover bg-gradient-to-br from-violet-500 to-violet-600 hover:from-violet-400 hover:to-violet-500 border border-violet-400/50"
+                    className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 h-14 px-10 text-base font-bold text-white rounded-xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-100 shadow-2xl shadow-violet-600/20 hover:shadow-violet-600/40 bg-gradient-to-br from-violet-500 to-violet-600 hover:from-violet-400 hover:to-violet-500 border border-violet-400/50"
                 >
                     Create Your Account
-                    <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                    <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
                 </button>
-                <a href="#features" className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 h-12 px-8 text-base font-semibold text-zinc-300 hover:text-white bg-zinc-800/50 hover:bg-zinc-800/80 rounded-lg transition-colors border border-white/10">
+                <a href="#features" className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 h-14 px-10 text-base font-semibold text-zinc-200 hover:text-white bg-zinc-800/50 hover:bg-zinc-800/80 rounded-xl transition-all duration-300 border border-white/10 hover:border-white/20 backdrop-blur-sm">
                     See How It Works
+                    <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
                 </a>
             </div>
         </div>
@@ -258,7 +317,7 @@ const Footer: React.FC<{ onShowCreateUser: () => void }> = ({ onShowCreateUser }
             </div>
         </div>
          <div className="max-w-6xl mx-auto mt-24 border-t border-zinc-800 pt-8 flex flex-col sm:flex-row justify-between items-center text-sm text-zinc-500">
-            <p>&copy; {new Date().getFullYear()} Virtual Studio Inc. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Siyada Tech. All rights reserved.</p>
             <div className="flex items-center space-x-6 mt-4 sm:mt-0">
                  <a href="#" className="hover:text-zinc-300 transition-colors">Terms</a>
                  <a href="#" className="hover:text-zinc-300 transition-colors">Privacy</a>

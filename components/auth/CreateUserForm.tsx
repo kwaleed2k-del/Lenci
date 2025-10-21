@@ -6,7 +6,7 @@ interface CreateUserFormProps {
 }
 
 export const CreateUserForm: React.FC<CreateUserFormProps> = ({ onUserCreated }) => {
-  const [email, setEmail] = useState('demo@virtualstudio.ai');
+  const [email, setEmail] = useState('demo@siyadatech.com');
   const [password, setPassword] = useState('DemoPassword123!');
   const [showPassword, setShowPassword] = useState(false);
   const [isCreating, setIsCreating] = useState(false);

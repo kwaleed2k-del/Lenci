@@ -82,8 +82,12 @@ const mockGenerateImage = async (baseParts: any[], aspectRatio: AspectRatio['val
                 
                 console.log(`🎨 Professional AI Imaging - Processing ${images.length} image(s)`);
                 
-                // Use the new professional imaging service
-                const result = await professionalImagingService.processImages(images, aspectRatio as '1:1' | '4:5');
+                // Extract settings from the settings part if available
+                const settingsPart = baseParts.find(p => p.settings);
+                const settings = settingsPart?.settings;
+                
+                // Use the new professional imaging service with settings
+                const result = await professionalImagingService.processImages(images, aspectRatio as '1:1' | '4:5', settings);
                 
                 onImageGenerated(result.image, i);
                 return;

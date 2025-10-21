@@ -154,7 +154,7 @@ export const DatabaseTest: React.FC = () => {
                     <p><strong>Status:</strong> ✅ Connected & Ready</p>
                     <p><strong>Auth:</strong> ✅ JWT-based Authentication</p>
                     <p><strong>Tables:</strong> 📋 Schema available (see database-schema.sql)</p>
-                    <p><strong>User:</strong> demo@virtualstudio.ai (Brand Plan)</p>
+                    <p><strong>User:</strong> demo@siyadatech.com (Brand Plan)</p>
                 </div>
             </div>
             

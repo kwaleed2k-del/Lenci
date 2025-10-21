@@ -1,9 +1,5 @@
 // AI-powered apparel type detection service using Gemini AI
-
-import { GoogleGenAI } from '@google/genai';
-
-const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
-const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
+// All AI calls go through server-side endpoints for security
 
 export interface ApparelDetectionResult {
     category: string;
@@ -20,16 +16,8 @@ export const apparelDetectionService = {
      * Detects apparel type and details from an uploaded image
      */
     detectApparelType: async (imageBase64: string): Promise<ApparelDetectionResult> => {
-        if (!ai) {
-            // Mock detection for development
-            return mockApparelDetection();
-        }
-
         try {
-            console.log("🔍 Using Gemini AI to detect apparel type...");
-            
-            // Use the correct @google/genai API
-            const model = "gemini-2.5-flash-image-preview";
+            console.log("🔍 Calling server endpoint: /api/apparel/detect");
 
             const prompt = `**APPAREL TYPE DETECTION TASK**
 
@@ -63,21 +51,19 @@ You are a professional fashion expert and AI assistant. Analyze the uploaded clo
 
 Analyze the image and provide the JSON response:`;
 
-            const parts = [
-                { text: prompt },
-                { 
-                    inlineData: { 
-                        mimeType: 'image/jpeg', 
-                        data: imageBase64.split(',')[1] // Remove data:image/jpeg;base64, prefix
-                    } 
-                }
-            ];
-
-            const result = await ai.models.generateContent({
-                model,
-                contents: { parts }
+            const response = await fetch('/api/apparel/detect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageBase64, prompt, model: 'gemini-2.5-flash-image-preview' })
             });
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Server returned error for apparel detection:', errorText);
+                throw new Error(errorText);
+            }
+            
+            const { text } = await response.json();
 
             // Parse JSON response
             try {

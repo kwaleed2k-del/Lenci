@@ -1,15 +1,6 @@
 // Professional AI-Powered Fashion Imaging Service
 // Handles Virtual Try-On and AI Product Shoot modes
-
-import { GoogleGenAI } from '@google/genai';
-
-const API_KEY = process.env.GEMINI_API_KEY || process.env.API_KEY;
-const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
-
-console.log("🔑 ProfessionalImagingService - API Key status:", API_KEY ? "LOADED" : "NOT LOADED");
-if (API_KEY) {
-    console.log("🔑 API Key starts with:", API_KEY.substring(0, 10) + "...");
-}
+// All AI calls go through server-side endpoints for security
 
 export interface ImagingResult {
     image: string; // base64 data URL
@@ -27,194 +18,54 @@ export const professionalImagingService = {
      */
     processImages: async (
         images: string[], // base64 data URLs
-        aspectRatio: '1:1' | '4:5' = '4:5'
+        aspectRatio: '1:1' | '4:5' = '4:5',
+        settings?: any // All settings from the store
     ): Promise<ImagingResult> => {
         const startTime = Date.now();
-        
-        if (!ai) {
-            return mockProfessionalImaging(images, aspectRatio, startTime);
-        }
 
         try {
-            console.log(`🎨 Professional AI Imaging - Processing ${images.length} image(s)`);
-            
-            if (images.length === 2) {
-                // Virtual Try-On Mode
-                return await processVirtualTryOn(images[0], images[1], aspectRatio, startTime);
-            } else if (images.length === 1) {
-                // AI Product Shoot Mode
-                return await processProductShoot(images[0], aspectRatio, startTime);
-            } else {
-                throw new Error('Invalid input: Expected 1 or 2 images');
+                console.log(`🎨 Professional AI Imaging - Processing ${images.length} image(s)`);
+                console.log('📡 Calling server endpoint: /api/imaging/process');
+                console.log('⚙️ Settings:', settings);
+                
+                const response = await fetch('/api/imaging/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        images, 
+                        aspectRatio, 
+                        model: 'gemini-2.5-flash-image-preview',
+                        settings // Pass all settings to server
+                    })
+                });
+                
+                console.log('📡 Server response status:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Server returned error:', errorText);
+                    throw new Error(errorText);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Server returned data successfully');
+                
+                return {
+                    image: data.image,
+                    mode: images.length === 2 ? 'virtual-tryon' : 'product-shoot',
+                    metadata: {
+                        aspectRatio: aspectRatio,
+                        resolution: '1024x1280',
+                        processingTime: Date.now() - startTime
+                    }
+                };
+            } catch (error) {
+                console.error('❌ Professional imaging error:', error);
+                console.log('⚠️ Falling back to enhanced mock with actual image processing...');
+                return enhancedMockWithImageProcessing(images, aspectRatio, startTime);
             }
-        } catch (error) {
-            console.error('Professional imaging error:', error);
-            console.log('Falling back to enhanced mock with actual image processing...');
-            return enhancedMockWithImageProcessing(images, aspectRatio, startTime);
-        }
     }
 };
-
-/**
- * Virtual Try-On Mode: Model + Apparel → Seamless Composite
- */
-async function processVirtualTryOn(
-    modelImage: string, 
-    apparelImage: string, 
-    aspectRatio: string,
-    startTime: number
-): Promise<ImagingResult> {
-    console.log("👔 Virtual Try-On Mode: Creating seamless model + apparel composite");
-    
-    // Use the correct @google/genai API
-    const model = "gemini-2.5-flash-image-preview";
-
-    const prompt = `**VIRTUAL TRY-ON COMPOSITE GENERATION**
-
-**MISSION:** Create a seamless, photorealistic fashion composite where the model is wearing the exact apparel from the second image.
-
-**CRITICAL REQUIREMENTS:**
-1. **MODEL PRESERVATION:** Keep the model's face, hair, skin tone, and body proportions exactly as shown
-2. **SEAMLESS APPAREL INTEGRATION:** The clothing must appear naturally fitted to the model's body
-3. **REALISTIC LIGHTING:** Match lighting temperature and direction between model and garment
-4. **PROFESSIONAL QUALITY:** Studio-quality result suitable for commercial use
-5. **NO SIDE-BY-SIDE:** Output only the final composite, not separate images
-
-**TECHNICAL SPECIFICATIONS:**
-- Aspect Ratio: ${aspectRatio}
-- Resolution: Minimum 1024px width
-- Quality: Commercial-grade, marketing-ready
-- Style: Professional fashion photography
-- Lighting: Natural, balanced studio lighting
-- Shadows: Realistic body and fabric shadows
-
-**COMPOSITION RULES:**
-- Preserve model's pose and expression
-- Ensure apparel fits naturally on the body
-- Maintain consistent lighting throughout
-- Create realistic fabric draping and texture
-- Add appropriate shadows and depth
-- Ensure commercial clarity and appeal
-
-**OUTPUT:** Generate a single, seamlessly merged image where the model is wearing the apparel naturally and realistically.`;
-
-    const parts = [
-        { text: prompt },
-        { 
-            inlineData: { 
-                mimeType: 'image/jpeg', 
-                data: modelImage.split(',')[1]
-            } 
-        },
-        { 
-            inlineData: { 
-                mimeType: 'image/jpeg', 
-                data: apparelImage.split(',')[1]
-            } 
-        }
-    ];
-
-    const result = await ai!.models.generateContent({
-        model,
-        contents: { parts },
-        config: {
-            responseModalities: ['IMAGE']
-        }
-    });
-    const imageData = result.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-
-    if (imageData) {
-        const generatedImage = `data:${imageData.mimeType};base64,${imageData.data}`;
-        return {
-            image: generatedImage,
-            mode: 'virtual-tryon',
-            metadata: {
-                aspectRatio,
-                resolution: '1024x1280',
-                processingTime: Date.now() - startTime
-            }
-        };
-    }
-
-    throw new Error('Failed to generate virtual try-on image');
-}
-
-/**
- * AI Product Shoot Mode: Single Product → Studio Photo
- */
-async function processProductShoot(
-    productImage: string, 
-    aspectRatio: string,
-    startTime: number
-): Promise<ImagingResult> {
-    console.log("📸 AI Product Shoot Mode: Creating studio-style product photo");
-    
-    // Use the correct @google/genai API
-    const model = "gemini-2.5-flash-image-preview";
-
-    const prompt = `**AI PRODUCT SHOOT GENERATION**
-
-**MISSION:** Transform the product into a professional, studio-quality product photograph suitable for e-commerce and marketing.
-
-**REQUIREMENTS:**
-1. **CLEAN BACKGROUND:** White or subtle gradient background
-2. **BALANCED LIGHTING:** Professional studio lighting with natural shadows
-3. **SHARP EDGES:** Crisp, clean product edges
-4. **COLOR BALANCE:** Accurate, vibrant colors
-5. **PROFESSIONAL COMPOSITION:** Centered, well-framed product
-6. **COMMERCIAL READY:** E-commerce and marketing quality
-
-**TECHNICAL SPECIFICATIONS:**
-- Aspect Ratio: ${aspectRatio}
-- Resolution: Minimum 1024px width
-- Background: Clean white or subtle gradient
-- Lighting: Soft, even studio lighting
-- Shadows: Natural, subtle product shadows
-- Optional: Floor reflection or shadow for depth
-
-**STYLE GUIDELINES:**
-- Professional product photography aesthetic
-- Clean, minimalist composition
-- Perfect for e-commerce platforms
-- Instagram-ready quality
-- Marketing and advertising suitable
-
-**OUTPUT:** Generate a single, professional product photograph with clean background, perfect lighting, and commercial-grade quality.`;
-
-    const parts = [
-        { text: prompt },
-        { 
-            inlineData: { 
-                mimeType: 'image/jpeg', 
-                data: productImage.split(',')[1]
-            } 
-        }
-    ];
-
-    const result = await ai!.models.generateContent({
-        model,
-        contents: { parts },
-        config: {
-            responseModalities: ['IMAGE']
-        }
-    });
-    const imageData = result.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-
-    if (imageData) {
-        const generatedImage = `data:${imageData.mimeType};base64,${imageData.data}`;
-        return {
-            image: generatedImage,
-            mode: 'product-shoot',
-            metadata: {
-                aspectRatio,
-                resolution: '1024x1280',
-                processingTime: Date.now() - startTime
-            }
-        };
-    }
-
-    throw new Error('Failed to generate product shoot image');
-}
 
 /**
  * Enhanced mock that actually processes your images
@@ -232,68 +83,70 @@ function enhancedMockWithImageProcessing(
         const canvas = document.createElement('canvas');
         canvas.width = aspectRatio === '1:1' ? 1024 : 1024;
         canvas.height = aspectRatio === '1:1' ? 1024 : 1280;
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-            resolve(mockProfessionalImaging(images, aspectRatio, startTime));
-            return;
-        }
+        const ctx = canvas.getContext('2d')!;
 
-        if (images.length === 2) {
-            // Virtual Try-On: Composite the images
+        // Create gradient background
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#18181b');
+        gradient.addColorStop(1, '#27272a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (mode === 'virtual-tryon' && images.length === 2) {
+            // Load both images
             const modelImg = new Image();
             const apparelImg = new Image();
-            let loadedCount = 0;
-            
-            const processImages = () => {
-                if (loadedCount < 2) return;
+            let modelLoaded = false;
+            let apparelLoaded = false;
+
+            const checkBothLoaded = () => {
+                if (!modelLoaded || !apparelLoaded) return;
+
+                // Draw model image (centered, scaled to fit)
+                const modelScale = Math.min(
+                    canvas.width / modelImg.width,
+                    (canvas.height * 0.85) / modelImg.height
+                );
+                const modelW = modelImg.width * modelScale;
+                const modelH = modelImg.height * modelScale;
+                const modelX = (canvas.width - modelW) / 2;
+                const modelY = (canvas.height - modelH) / 2;
+
+                ctx.drawImage(modelImg, modelX, modelY, modelW, modelH);
+
+                // Draw apparel thumbnail in top-right corner
+                const thumbSize = 200;
+                const thumbX = canvas.width - thumbSize - 20;
+                const thumbY = 20;
                 
-                // Create a professional composite
-                const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-                gradient.addColorStop(0, '#f8f9fa');
-                gradient.addColorStop(1, '#e9ecef');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // White background for thumbnail
+                ctx.fillStyle = 'white';
+                ctx.fillRect(thumbX - 5, thumbY - 5, thumbSize + 10, thumbSize + 10);
                 
-                // Draw model image (scaled to fit)
-                const modelScale = 0.6;
-                const modelWidth = canvas.width * modelScale;
-                const modelHeight = (modelWidth * modelImg.height) / modelImg.width;
-                const modelX = (canvas.width - modelWidth) / 2;
-                const modelY = (canvas.height - modelHeight) / 2;
+                const apparelScale = Math.min(thumbSize / apparelImg.width, thumbSize / apparelImg.height);
+                const apparelW = apparelImg.width * apparelScale;
+                const apparelH = apparelImg.height * apparelScale;
+                const apparelX = thumbX + (thumbSize - apparelW) / 2;
+                const apparelY = thumbY + (thumbSize - apparelH) / 2;
                 
-                ctx.drawImage(modelImg, modelX, modelY, modelWidth, modelHeight);
-                
-                // Add apparel overlay (smaller, positioned)
-                const apparelScale = 0.3;
-                const apparelWidth = canvas.width * apparelScale;
-                const apparelHeight = (apparelWidth * apparelImg.height) / apparelImg.width;
-                const apparelX = canvas.width - apparelWidth - 20;
-                const apparelY = 20;
-                
-                // Add semi-transparent background for apparel
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                ctx.fillRect(apparelX - 10, apparelY - 10, apparelWidth + 20, apparelHeight + 20);
-                
-                ctx.drawImage(apparelImg, apparelX, apparelY, apparelWidth, apparelHeight);
-                
-                // Add professional labels
-                ctx.fillStyle = '#333';
-                ctx.font = 'bold 24px Arial';
+                ctx.drawImage(apparelImg, apparelX, apparelY, apparelW, apparelH);
+
+                // Add labels
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 32px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText('Virtual Try-On Result', canvas.width/2, 40);
+                ctx.fillText('Virtual Try-On Result', canvas.width / 2, 50);
+
+                ctx.font = '16px sans-serif';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.fillText('Model + Apparel Composite', canvas.width / 2, canvas.height - 50);
                 
-                ctx.font = '16px Arial';
-                ctx.fillText('Model + Apparel Composite', canvas.width/2, canvas.height - 40);
-                
-                // Add processing indicator
-                ctx.fillStyle = '#6c5ce7';
-                ctx.font = '14px Arial';
-                ctx.fillText('Enhanced Processing Complete', canvas.width/2, canvas.height - 20);
-                
+                ctx.fillStyle = 'rgba(167, 139, 250, 0.9)';
+                ctx.fillText('Enhanced Processing Complete', canvas.width / 2, canvas.height - 25);
+
                 resolve({
-                    image: canvas.toDataURL('image/jpeg', 0.9),
-                    mode,
+                    image: canvas.toDataURL('image/png'),
+                    mode: 'virtual-tryon',
                     metadata: {
                         aspectRatio,
                         resolution: `${canvas.width}x${canvas.height}`,
@@ -301,49 +154,41 @@ function enhancedMockWithImageProcessing(
                     }
                 });
             };
+
+            modelImg.onload = () => { modelLoaded = true; checkBothLoaded(); };
+            apparelImg.onload = () => { apparelLoaded = true; checkBothLoaded(); };
             
-            modelImg.onload = () => { loadedCount++; processImages(); };
-            apparelImg.onload = () => { loadedCount++; processImages(); };
             modelImg.src = images[0];
             apparelImg.src = images[1];
-            
-        } else if (images.length === 1) {
-            // Product Shoot: Enhance the single image
+
+        } else {
+            // Product shoot mode - single image
             const productImg = new Image();
             productImg.onload = () => {
-                // Create professional product background
-                const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-                gradient.addColorStop(0, '#ffffff');
-                gradient.addColorStop(1, '#f8f9fa');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Draw product image (centered, scaled)
-                const productScale = 0.7;
-                const productWidth = canvas.width * productScale;
-                const productHeight = (productWidth * productImg.height) / productImg.width;
-                const productX = (canvas.width - productWidth) / 2;
-                const productY = (canvas.height - productHeight) / 2;
-                
-                ctx.drawImage(productImg, productX, productY, productWidth, productHeight);
-                
-                // Add professional labels
-                ctx.fillStyle = '#333';
-                ctx.font = 'bold 24px Arial';
+                const scale = Math.min(
+                    (canvas.width * 0.8) / productImg.width,
+                    (canvas.height * 0.8) / productImg.height
+                );
+                const w = productImg.width * scale;
+                const h = productImg.height * scale;
+                const x = (canvas.width - w) / 2;
+                const y = (canvas.height - h) / 2;
+
+                ctx.drawImage(productImg, x, y, w, h);
+
+                // Add label
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 28px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText('AI Product Shoot', canvas.width/2, 40);
-                
-                ctx.font = '16px Arial';
-                ctx.fillText('Studio-Quality Result', canvas.width/2, canvas.height - 40);
-                
-                // Add processing indicator
-                ctx.fillStyle = '#6c5ce7';
-                ctx.font = '14px Arial';
-                ctx.fillText('Enhanced Processing Complete', canvas.width/2, canvas.height - 20);
-                
+                ctx.fillText('AI Product Shoot Result', canvas.width / 2, 50);
+
+                ctx.font = '14px sans-serif';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.fillText('Professional Studio Rendering', canvas.width / 2, canvas.height - 30);
+
                 resolve({
-                    image: canvas.toDataURL('image/jpeg', 0.9),
-                    mode,
+                    image: canvas.toDataURL('image/png'),
+                    mode: 'product-shoot',
                     metadata: {
                         aspectRatio,
                         resolution: `${canvas.width}x${canvas.height}`,
@@ -357,53 +202,43 @@ function enhancedMockWithImageProcessing(
 }
 
 /**
- * Basic mock implementation for development
+ * Fallback mock for when nothing is uploaded
  */
 function mockProfessionalImaging(
     images: string[], 
     aspectRatio: string, 
     startTime: number
 ): ImagingResult {
-    console.log("🎭 Basic Mock Professional Imaging");
-    
-    // Create a mock result based on input count
-    const mode = images.length === 2 ? 'virtual-tryon' : 'product-shoot';
-    
-    // For mock, return the first image with a processing overlay
     const canvas = document.createElement('canvas');
     canvas.width = aspectRatio === '1:1' ? 1024 : 1024;
     canvas.height = aspectRatio === '1:1' ? 1024 : 1280;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d')!;
+
+    // Gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#a78bfa');
+    gradient.addColorStop(1, '#7c3aed');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Text overlay
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 42px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Professional AI Imaging', canvas.width / 2, canvas.height / 2 - 40);
     
-    if (ctx) {
-        // Fill with professional background
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, '#f8f9fa');
-        gradient.addColorStop(1, '#e9ecef');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Add professional text
-        ctx.fillStyle = '#333';
-        ctx.font = 'bold 32px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Professional AI Imaging', canvas.width/2, canvas.height/2 - 40);
-        
-        ctx.font = '20px Arial';
-        ctx.fillText(`Mode: ${mode === 'virtual-tryon' ? 'Virtual Try-On' : 'Product Shoot'}`, canvas.width/2, canvas.height/2);
-        
-        ctx.font = '16px Arial';
-        ctx.fillText('Commercial-grade result ready', canvas.width/2, canvas.height/2 + 40);
-        
-        // Add processing indicator
-        ctx.fillStyle = '#6c5ce7';
-        ctx.font = '14px Arial';
-        ctx.fillText('AI Processing Complete', canvas.width/2, canvas.height/2 + 80);
-    }
+    ctx.font = '24px sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    const mode = images.length === 2 ? 'Virtual Try-On' : 'Product Shoot';
+    ctx.fillText(`Mode: ${mode}`, canvas.width / 2, canvas.height / 2 + 20);
     
+    ctx.font = '18px sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.fillText('Upload images to begin processing', canvas.width / 2, canvas.height / 2 + 60);
+
     return {
-        image: canvas.toDataURL('image/jpeg', 0.9),
-        mode,
+        image: canvas.toDataURL('image/png'),
+        mode: images.length === 2 ? 'virtual-tryon' : 'product-shoot',
         metadata: {
             aspectRatio,
             resolution: `${canvas.width}x${canvas.height}`,

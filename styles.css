@@ -253,6 +253,52 @@ body::-webkit-scrollbar-thumb:hover, *::-webkit-scrollbar-thumb:hover {
     }
 }
 
+/* Slow spin animation for hero orb */
+@keyframes animate-spin-slow {
+    from {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+.animate-spin-slow {
+    animation: animate-spin-slow 20s linear infinite;
+}
+
+/* Floating text animation for hero background */
+@keyframes float-slow {
+    0%, 100% {
+        transform: translateY(0px) translateX(0px);
+    }
+    25% {
+        transform: translateY(-20px) translateX(10px);
+    }
+    50% {
+        transform: translateY(-10px) translateX(-10px);
+    }
+    75% {
+        transform: translateY(-25px) translateX(5px);
+    }
+}
+
+.animate-float-slow {
+    animation: float-slow 15s ease-in-out infinite;
+}
+
+.delay-500 {
+    animation-delay: 0.5s;
+}
+
+.delay-700 {
+    animation-delay: 0.7s;
+}
+
+.delay-1000 {
+    animation-delay: 1s;
+}
+
 
 /* Landing Page Scroll Animations */
 .animate-fade-in, .animate-slide-up {
