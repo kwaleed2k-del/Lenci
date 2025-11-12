@@ -12,7 +12,7 @@ export const EmptyState: React.FC = () => {
         : "Your generated mockups will appear here. Begin by uploading a mockup and a design in the left panel.";
 
     const title = studioMode === 'apparel' 
-        ? "Siyada Studio Canvas" 
+        ? "Lenci Canvas" 
         : studioMode === 'product'
         ? "Product Stage Canvas"
         : "Design Canvas";

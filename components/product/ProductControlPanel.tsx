@@ -12,11 +12,27 @@ import {
 } from '../../constants';
 import { OptionSelector } from '../shared/OptionSelector';
 import { ToggleSwitch } from '../shared/ToggleSwitch';
-import { Sparkles, Film, Type, Save, Layers, Trash2 } from 'lucide-react';
+import { Sparkles, Film, Type, Save, Layers, Trash2, Image as ImageIcon } from 'lucide-react';
 import { SettingSection } from '../settings/SettingSection';
+import { LogoUploader } from '../shared/LogoUploader';
 
 export const ProductControlPanel: React.FC = () => {
-    const { productControls, updateProductControl, sceneTemplates, saveSceneTemplate, applySceneTemplate, deleteSceneTemplate } = useStudio();
+    const { 
+        productControls, 
+        updateProductControl, 
+        sceneTemplates, 
+        saveSceneTemplate, 
+        applySceneTemplate, 
+        deleteSceneTemplate,
+        brandLogo,
+        setBrandLogo,
+        logoPosition,
+        setLogoPosition,
+        logoSize,
+        setLogoSize,
+        logoOpacity,
+        setLogoOpacity
+    } = useStudio();
     const [templateName, setTemplateName] = useState('');
 
     const handleSave = () => {
@@ -192,6 +208,21 @@ export const ProductControlPanel: React.FC = () => {
                         placeholder="e.g., A watch on a marble slab, surrounded by coffee beans, dramatic side lighting..."
                         rows={5}
                         className="w-full p-2.5 rounded-md bg-zinc-850 text-zinc-200 border border-zinc-700 focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500 transition-colors text-sm shadow-inner-soft"
+                    />
+                </div>
+            </SettingSection>
+
+            <SettingSection title="Brand Logo Overlay" icon={<ImageIcon size={18}/>}>
+                <div className="pt-4">
+                    <LogoUploader 
+                        logo={brandLogo}
+                        onLogoChange={setBrandLogo}
+                        position={logoPosition}
+                        onPositionChange={setLogoPosition}
+                        size={logoSize}
+                        onSizeChange={setLogoSize}
+                        opacity={logoOpacity}
+                        onOpacityChange={setLogoOpacity}
                     />
                 </div>
             </SettingSection>

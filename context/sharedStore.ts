@@ -4,6 +4,7 @@ import { BACKGROUNDS_LIBRARY, LIGHTING_PRESETS, ANIMATION_STYLES_LIBRARY, ASPECT
 import { geminiService } from '../services/geminiService';
 import { promptService } from '../services/promptService';
 import type { StudioStoreSlice, StudioStore } from './StudioContext';
+import { overlayLogo } from '../utils/logoOverlay';
 
 const VIDEO_LOADING_MESSAGES = [
     "Warming up the virtual cameras...",
@@ -30,6 +31,7 @@ const urlToBase64 = async (url: string): Promise<string> => {
 
 export interface SharedState {
   studioMode: 'apparel' | 'product' | 'design' | 'reimagine';
+  guideFlow: 'apparel' | 'product' | null;
   scene: Scene;
   looks: Look[];
   aspectRatio: AspectRatio;
@@ -57,12 +59,18 @@ export interface SharedState {
   showProcessingNotification: boolean;
   processingMessage: string;
   processingProgress: number;
+  // Brand Logo (shared across all modes)
+  brandLogo: string | null;
+  logoPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+  logoSize: number;
+  logoOpacity: number;
   // Add constants to the store so they can be accessed by other slices via get()
   BACKGROUNDS_LIBRARY: typeof BACKGROUNDS_LIBRARY;
 }
 
 export interface SharedActions {
   setStudioMode: (mode: 'apparel' | 'product' | 'design' | 'reimagine') => void;
+  startGuide: (flow: 'apparel' | 'product') => void;
   clearError: () => void;
   updateScene: (partialScene: Partial<Scene>) => void;
   setProcessingNotification: (show: boolean, message?: string, progress?: number) => void;
@@ -90,12 +98,18 @@ export interface SharedActions {
   _applyPostProductionEffect: (prompt: string, loadingMsg: string) => Promise<void>;
   generateColorways: (colors: string[], incrementGenerationsUsed: (count: number) => void) => Promise<void>;
   generateAIBackground: (prompt: string) => Promise<void>;
+  // Logo actions
+  setBrandLogo: (base64: string | null) => void;
+  setLogoPosition: (position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center') => void;
+  setLogoSize: (size: number) => void;
+  setLogoOpacity: (opacity: number) => void;
 }
 
 export type SharedSlice = SharedState & SharedActions;
 
 const initialSharedState: Omit<SharedState, 'BACKGROUNDS_LIBRARY'> = {
     studioMode: 'apparel',
+    guideFlow: null,
     scene: {
         background: BACKGROUNDS_LIBRARY[1],
         lighting: LIGHTING_PRESETS[1],
@@ -108,6 +122,10 @@ const initialSharedState: Omit<SharedState, 'BACKGROUNDS_LIBRARY'> = {
     styleReferenceImage: null,
     generatedImages: null,
     generatedVideoUrl: null,
+    brandLogo: null,
+    logoPosition: 'bottom-right',
+    logoSize: 10,
+    logoOpacity: 80,
     videoSourceImage: null,
     error: null,
     isGenerating: false,
@@ -133,6 +151,13 @@ const initialSharedState: Omit<SharedState, 'BACKGROUNDS_LIBRARY'> = {
 export const createSharedSlice: StudioStoreSlice<SharedSlice> = (set, get) => ({
     ...initialSharedState,
     BACKGROUNDS_LIBRARY,
+  
+  startGuide: (flow) => {
+    // Switch to requested studio mode
+    get().setStudioMode(flow);
+    // Store which guide to run and show overlay
+    set({ guideFlow: flow, isGuideActive: true });
+  },
 
     setStudioMode: (mode) => {
         const currentScene = get().scene;
@@ -494,11 +519,23 @@ export const createSharedSlice: StudioStoreSlice<SharedSlice> = (set, get) => ({
                                 styleDescription, aspectRatio: state.aspectRatio.value,
                             });
 
-                             await geminiService.generatePhotoshootImage(parts, state.aspectRatio.value, 1, negativePrompt, (imageB64, _index) => {
+                             await geminiService.generatePhotoshootImage(parts, state.aspectRatio.value, 1, negativePrompt, async (imageB64, _index) => {
                                 if (get().generationIdRef !== currentGenerationId) return;
+                                
+                                // Apply logo overlay if logo is uploaded
+                                let finalImageB64 = imageB64;
+                                if (state.brandLogo) {
+                                    try {
+                                        finalImageB64 = await overlayLogo(imageB64, state.brandLogo, state.logoPosition, state.logoSize, state.logoOpacity);
+                                    } catch (error) {
+                                        console.error('Failed to overlay logo:', error);
+                                        // Continue with original image if overlay fails
+                                    }
+                                }
+                                
                                 set(st => {
                                     const newImages = [...st.generatedImages!];
-                                    newImages[i] = imageB64;
+                                    newImages[i] = finalImageB64;
                                     const firstNonNullIndex = newImages.findIndex(img => img !== null);
                                     return { generatedImages: newImages, activeImageIndex: st.activeImageIndex === null ? firstNonNullIndex : st.activeImageIndex };
                                 });
@@ -516,11 +553,23 @@ export const createSharedSlice: StudioStoreSlice<SharedSlice> = (set, get) => ({
                         styleDescription, aspectRatio: state.aspectRatio.value,
                     });
                     
-                    const promise = geminiService.generatePhotoshootImage(parts, state.aspectRatio.value, totalGenerations, negativePrompt, (imageB64, index) => {
+                    const promise = geminiService.generatePhotoshootImage(parts, state.aspectRatio.value, totalGenerations, negativePrompt, async (imageB64, index) => {
                         if (get().generationIdRef !== currentGenerationId) return;
+                        
+                        // Apply logo overlay if logo is uploaded
+                        let finalImageB64 = imageB64;
+                        if (state.brandLogo) {
+                            try {
+                                finalImageB64 = await overlayLogo(imageB64, state.brandLogo, state.logoPosition, state.logoSize, state.logoOpacity);
+                            } catch (error) {
+                                console.error('Failed to overlay logo:', error);
+                                // Continue with original image if overlay fails
+                            }
+                        }
+                        
                         set(st => {
                             const newImages = [...st.generatedImages!];
-                            newImages[index] = imageB64;
+                            newImages[index] = finalImageB64;
                             const firstNonNullIndex = newImages.findIndex(img => img !== null);
                             return { generatedImages: newImages, activeImageIndex: st.activeImageIndex === null ? firstNonNullIndex : st.activeImageIndex };
                         });
@@ -611,8 +660,19 @@ export const createSharedSlice: StudioStoreSlice<SharedSlice> = (set, get) => ({
                             ? await urlToBase64(model.thumbnail) 
                             : state.uploadedModelImage;
 
-                    const onImageGenerated = (imageB64: string, resultIndex: number, packIndex?: number) => {
+                    const onImageGenerated = async (imageB64: string, resultIndex: number, packIndex?: number) => {
                         if (get().generationIdRef !== currentGenerationId) return;
+                        
+                        // Apply logo overlay if logo is uploaded
+                        let finalImageB64 = imageB64;
+                        if (state.brandLogo) {
+                            try {
+                                finalImageB64 = await overlayLogo(imageB64, state.brandLogo, state.logoPosition, state.logoSize, state.logoOpacity);
+                            } catch (error) {
+                                console.error('Failed to overlay logo:', error);
+                                // Continue with original image if overlay fails
+                            }
+                        }
                         
                         let finalIndex;
                         if (state.isSocialMediaPack) {
@@ -626,7 +686,7 @@ export const createSharedSlice: StudioStoreSlice<SharedSlice> = (set, get) => ({
 
                         set(st => {
                             const newImages = [...st.generatedImages!];
-                            newImages[finalIndex] = imageB64;
+                            newImages[finalIndex] = finalImageB64;
                             const firstNonNullIndex = newImages.findIndex(img => img !== null);
                             return { generatedImages: newImages, activeImageIndex: st.activeImageIndex === null ? firstNonNullIndex : st.activeImageIndex };
                         });
@@ -921,4 +981,10 @@ export const createSharedSlice: StudioStoreSlice<SharedSlice> = (set, get) => ({
 - **CRITICAL INSTRUCTION:** Do NOT change the background or composition. Only transform the subject itself.`;
         await get()._applyPostProductionEffect(prompt, `Applying Hologram Effect...`);
     },
+    
+    // Logo actions
+    setBrandLogo: (base64) => set({ brandLogo: base64 }),
+    setLogoPosition: (position) => set({ logoPosition: position }),
+    setLogoSize: (size) => set({ logoSize: size }),
+    setLogoOpacity: (opacity) => set({ logoOpacity: opacity }),
 });

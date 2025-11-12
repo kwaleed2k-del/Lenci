@@ -53,7 +53,7 @@ export const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                     <div className="bg-zinc-800/50 group-hover:bg-violet-600/20 p-2 rounded-lg border border-zinc-700/50 group-hover:border-violet-500/30 transition-all duration-300">
                         <Wand2 className="text-zinc-300 group-hover:text-violet-400 transition-colors duration-300" size={24} />
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-zinc-100 to-zinc-400">Siyada Studio</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-zinc-100 to-zinc-400">Lenci</h1>
                 </a>
 
                 <div 

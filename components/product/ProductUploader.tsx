@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { Package, X, Loader2 } from 'lucide-react';
 import { useStudio } from '../../context/StudioContext';
 import { ToggleSwitch } from '../shared/ToggleSwitch';
+import { ProductArtDirectorPanel } from './ProductArtDirectorPanel';
 
 export const ProductUploader: React.FC = () => {
     const { 
@@ -74,6 +75,8 @@ export const ProductUploader: React.FC = () => {
                             </button>
                         </div>
                     </div>
+                    
+                    <ProductArtDirectorPanel />
                 </div>
             </div>
         )
@@ -81,7 +84,7 @@ export const ProductUploader: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
-            <div {...getRootProps()} className={`flex-grow flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-all duration-200 ${isDragActive ? 'border-violet-500 bg-violet-500/10 shadow-glow-md' : 'border-zinc-700 hover:border-zinc-600'}`}>
+            <div {...getRootProps()} id="product-uploader-dropzone" className={`flex-grow flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-all duration-200 ${isDragActive ? 'border-violet-500 bg-violet-500/10 shadow-glow-md' : 'border-zinc-700 hover:border-zinc-600'}`}>
                 <input {...getInputProps()} />
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors ${isDragActive ? 'bg-violet-500/20' : 'bg-zinc-800'}`}>
                     <Package className={`transition-colors ${isDragActive ? 'text-violet-300' : 'text-zinc-400'}`} size={32} />

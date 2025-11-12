@@ -5,6 +5,7 @@ import { useStudio } from '../../context/StudioContext';
 import { ApparelItemCard } from './ApparelItemCard';
 import { AIEnhancements } from '../enhancements/AIEnhancements';
 import { apparelDetectionService } from '../../services/apparelDetectionService';
+import { LogoUploader } from '../shared/LogoUploader';
 
 export const ApparelUploader: React.FC = () => {
     const { 
@@ -15,7 +16,15 @@ export const ApparelUploader: React.FC = () => {
         updateApparelItemCategory,
         reorderApparel,
         suggestAndApplyLayering,
-        isSuggestingLayering
+        isSuggestingLayering,
+        brandLogo,
+        setBrandLogo,
+        logoPosition,
+        setLogoPosition,
+        logoSize,
+        setLogoSize,
+        logoOpacity,
+        setLogoOpacity
     } = useStudio();
     
     const dragIndex = useRef<number | null>(null);
@@ -143,6 +152,20 @@ export const ApparelUploader: React.FC = () => {
                    </div>
                ))}
                {apparel.length > 0 && <AIEnhancements />}
+               
+               {/* Brand Logo Uploader */}
+               <div className="mt-6 pt-6 border-t border-zinc-800">
+                   <LogoUploader 
+                       logo={brandLogo}
+                       onLogoChange={setBrandLogo}
+                       position={logoPosition}
+                       onPositionChange={setLogoPosition}
+                       size={logoSize}
+                       onSizeChange={setLogoSize}
+                       opacity={logoOpacity}
+                       onOpacityChange={setLogoOpacity}
+                   />
+               </div>
             </div>
         </div>
     );

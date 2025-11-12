@@ -11,6 +11,7 @@ interface TabButtonProps<T extends string> {
 
 export const TabButton = <T extends string>({ tabId, activeTab, onClick, icon, label, disabled = false }: TabButtonProps<T>) => (
     <button
+        data-tab-id={tabId}
         onClick={() => !disabled && onClick(tabId)}
         disabled={disabled}
         className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900

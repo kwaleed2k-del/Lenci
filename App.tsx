@@ -108,7 +108,7 @@ const AppHeader: React.FC<{
                     </button>
                     <a href="/" className="flex items-center gap-2" aria-label="Go to dashboard home">
                         <Wand2 size={24} className="text-violet-400" />
-                        <h1 className="hidden md:block text-lg font-bold text-zinc-100">Virtual Studio</h1>
+                        <h1 className="hidden md:block text-lg font-bold text-zinc-100">Lenci Studio</h1>
                     </a>
                 </div>
 
@@ -160,6 +160,26 @@ const AppContent: React.FC = () => {
         window.addEventListener('resize', handleResize);
         handleResize();
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        // Allow landing page to trigger a specific guided tour
+        const handler = (evt: Event) => {
+            const e = evt as CustomEvent<{ flow: 'apparel' | 'product' }>;
+            setShowStudio(true);
+            // Ensure panels visible so elements mount
+            setIsLeftPanelOpen(true);
+            setIsRightPanelOpen(true);
+            // Start the guide after a delay to allow DOM to render
+            setTimeout(() => {
+                const store = useStudio.getState();
+                if (store.startGuide) {
+                    store.startGuide(e.detail.flow);
+                }
+            }, 300);
+        };
+        window.addEventListener('startStudioGuide', handler as EventListener);
+        return () => window.removeEventListener('startStudioGuide', handler as EventListener);
     }, []);
 
     useEffect(() => {

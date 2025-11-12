@@ -1,5 +1,5 @@
-import type { ProductCreativeControls, ProductEcommercePack, ProductSceneTemplate, StagedAsset } from '../types';
-import { APERTURES_LIBRARY, CAMERA_ANGLES_LIBRARY_PRODUCT, COLOR_GRADING_PRESETS, FOCAL_LENGTHS_LIBRARY, LIGHTING_DIRECTIONS_LIBRARY, LIGHT_QUALITIES_LIBRARY, CATCHLIGHT_STYLES_LIBRARY, SURFACE_LIBRARY, PRODUCT_MATERIAL_LIBRARY, THEMED_SCENE_TEMPLATES } from '../constants';
+import type { ProductCreativeControls, ProductEcommercePack, ProductSceneTemplate, StagedAsset, ProductArtDirectorSuggestion } from '../types';
+import { APERTURES_LIBRARY, CAMERA_ANGLES_LIBRARY_PRODUCT, COLOR_GRADING_PRESETS, FOCAL_LENGTHS_LIBRARY, LIGHTING_DIRECTIONS_LIBRARY, LIGHT_QUALITIES_LIBRARY, CATCHLIGHT_STYLES_LIBRARY, SURFACE_LIBRARY, PRODUCT_MATERIAL_LIBRARY, THEMED_SCENE_TEMPLATES, LIGHTING_PRESETS_PRODUCT, BACKGROUNDS_LIBRARY } from '../constants';
 import { geminiService } from '../services/geminiService';
 import type { StudioStoreSlice } from './StudioContext';
 import { getDominantColor } from '../utils/colorExtractor';
@@ -17,6 +17,13 @@ export interface ProductState {
   suggestedBackgroundColor: string | null;
   sceneTemplates: ProductSceneTemplate[];
   productEcommercePack: ProductEcommercePack;
+  productArtDirectorSuggestions: ProductArtDirectorSuggestion[] | null;
+  isFetchingProductSuggestion: boolean;
+  appliedProductSuggestionId: string | null;
+  preProductConceptState: {
+    productControls: ProductCreativeControls;
+    scene: { lighting: any; background: any };
+  } | null;
 }
 
 export interface ProductActions {
@@ -32,6 +39,8 @@ export interface ProductActions {
   applySceneTemplate: (id: string) => void;
   deleteSceneTemplate: (id: string) => void;
   setProductEcommercePack: (pack: ProductEcommercePack) => void;
+  applyProductArtDirectorSuggestion: (suggestion: ProductArtDirectorSuggestion) => void;
+  removeProductArtDirectorSuggestion: () => void;
 }
 
 export type ProductSlice = ProductState & ProductActions;
@@ -69,6 +78,10 @@ const initialProductState: ProductState = {
   suggestedBackgroundColor: null,
   sceneTemplates: [],
   productEcommercePack: 'none',
+  productArtDirectorSuggestions: null,
+  isFetchingProductSuggestion: false,
+  appliedProductSuggestionId: null,
+  preProductConceptState: null,
 };
 
 export const createProductSlice: StudioStoreSlice<ProductSlice> = (set, get) => ({
@@ -95,6 +108,17 @@ export const createProductSlice: StudioStoreSlice<ProductSlice> = (set, get) => 
         });
         
         get().performBackgroundRemoval();
+        
+        // Fetch AI Art Director suggestions for product
+        set({ isFetchingProductSuggestion: true });
+        try {
+            const suggestions = await geminiService.getProductArtDirectorSuggestions(base64);
+            set({ productArtDirectorSuggestions: suggestions });
+        } catch (e) {
+            console.error("Failed to fetch product art director suggestions:", e);
+        } finally {
+            set({ isFetchingProductSuggestion: false });
+        }
         
         try {
             const dominantColor = await getDominantColor(base64);
@@ -212,4 +236,50 @@ export const createProductSlice: StudioStoreSlice<ProductSlice> = (set, get) => 
   },
 
   setProductEcommercePack: (pack) => set({ productEcommercePack: pack }),
+
+  applyProductArtDirectorSuggestion: (suggestion) => {
+    if (get().appliedProductSuggestionId === null) {
+        set(state => ({
+            preProductConceptState: {
+                productControls: state.productControls,
+                scene: state.scene,
+            }
+        }));
+    }
+    
+    if (!suggestion) return;
+    
+    const suggestedCameraAngle = CAMERA_ANGLES_LIBRARY_PRODUCT.find(c => c.id === suggestion.cameraAngleId);
+    const suggestedLighting = LIGHTING_PRESETS_PRODUCT.find(l => l.id === suggestion.lightingId);
+    const suggestedBackground = BACKGROUNDS_LIBRARY.find(b => b.id === suggestion.backgroundId);
+    const suggestedSurface = SURFACE_LIBRARY.find(s => s.id === suggestion.surfaceId);
+    const suggestedAperture = APERTURES_LIBRARY.find(a => a.id === suggestion.apertureId);
+    const suggestedFocalLength = FOCAL_LENGTHS_LIBRARY.find(f => f.id === suggestion.focalLengthId);
+    const suggestedColorGrade = COLOR_GRADING_PRESETS.find(c => c.id === suggestion.colorGradeId);
+    
+    if (suggestedLighting) get().updateScene({ lighting: suggestedLighting });
+    if (suggestedBackground) get().updateScene({ background: suggestedBackground });
+    
+    if (suggestedCameraAngle) get().updateProductControl('cameraAngle', suggestedCameraAngle);
+    if (suggestedSurface) get().updateProductControl('surface', suggestedSurface);
+    if (suggestedAperture) get().updateProductControl('aperture', suggestedAperture);
+    if (suggestedFocalLength) get().updateProductControl('focalLength', suggestedFocalLength);
+    if (suggestedColorGrade) get().updateProductControl('colorGrade', suggestedColorGrade);
+
+    set({ appliedProductSuggestionId: suggestion.id });
+  },
+
+  removeProductArtDirectorSuggestion: () => {
+    const preState = get().preProductConceptState;
+    if (preState) {
+        get().updateScene(preState.scene);
+        set({
+            productControls: preState.productControls,
+            appliedProductSuggestionId: null,
+            preProductConceptState: null,
+        });
+    } else {
+        set({ appliedProductSuggestionId: null });
+    }
+  },
 });

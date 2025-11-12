@@ -44,3 +44,16 @@ export interface ProductPackShot {
   cameraAngleId: string;
   focalLengthId?: string;
 }
+
+export interface ProductArtDirectorSuggestion {
+  id: string;
+  conceptName: string;
+  cameraAngleId: string;
+  lightingId: string;
+  backgroundId: string;
+  surfaceId: string;
+  apertureId: string;
+  focalLengthId: string;
+  colorGradeId: string;
+  reasoning: string;
+}

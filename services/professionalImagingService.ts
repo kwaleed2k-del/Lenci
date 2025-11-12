@@ -2,6 +2,8 @@
 // Handles Virtual Try-On and AI Product Shoot modes
 // All AI calls go through server-side endpoints for security
 
+import { aiProviderService } from './aiProviderService';
+
 export interface ImagingResult {
     image: string; // base64 data URL
     mode: 'virtual-tryon' | 'product-shoot';
@@ -9,6 +11,8 @@ export interface ImagingResult {
         aspectRatio: string;
         resolution: string;
         processingTime: number;
+        model?: string;
+        revised_prompt?: string;
     };
 }
 
@@ -17,16 +21,48 @@ export const professionalImagingService = {
      * Main processing function - auto-detects mode based on input count
      */
     processImages: async (
-        images: string[], // base64 data URLs
+        images: string[], // base64 data URLs (primary: model, apparel)
         aspectRatio: '1:1' | '4:5' = '4:5',
-        settings?: any // All settings from the store
+        settings?: any, // All settings from the store
+        referenceImages?: string[], // additional identity references
+        identityAttributes?: any // structured identity attributes
     ): Promise<ImagingResult> => {
         const startTime = Date.now();
 
         try {
                 console.log(`🎨 Professional AI Imaging - Processing ${images.length} image(s)`);
-                console.log('📡 Calling server endpoint: /api/imaging/process');
+                
+                // Check if we should use DALL-E 3
+                const currentProvider = aiProviderService.getCurrentProvider();
+                console.log(`🤖 Using AI Provider: ${currentProvider}`);
+                
+                if (currentProvider === 'dall-e-3') {
+                    // Use DALL-E 3 with a crafted prompt
+                    console.log('🎨 Using DALL-E 3 for high-quality generation...');
+                    
+                    // Generate a detailed prompt from settings
+                    const prompt = generateDALLEPrompt(images, settings, identityAttributes);
+                    console.log('📝 Generated prompt:', prompt.substring(0, 200) + '...');
+                    
+                    const result = await aiProviderService.generateWithDALLE(prompt, aspectRatio, 'hd');
+                    
+                    return {
+                        image: result.image,
+                        mode: images.length === 2 ? 'virtual-tryon' : 'product-shoot',
+                        metadata: {
+                            aspectRatio: aspectRatio,
+                            resolution: '1024x1792',
+                            processingTime: Date.now() - startTime,
+                            model: result.model,
+                            revised_prompt: result.revised_prompt
+                        }
+                    };
+                }
+                
+                // Fall back to Gemini
+                console.log('📡 Calling server endpoint: /api/imaging/process (Gemini)');
                 console.log('⚙️ Settings:', settings);
+                if (referenceImages?.length) console.log('🖼️ Reference images:', referenceImages.length);
                 
                 const response = await fetch('/api/imaging/process', {
                     method: 'POST',
@@ -35,7 +71,9 @@ export const professionalImagingService = {
                         images, 
                         aspectRatio, 
                         model: 'gemini-2.5-flash-image-preview',
-                        settings // Pass all settings to server
+                        settings, // Pass all settings to server
+                        referenceImages,
+                        identityAttributes
                     })
                 });
                 
@@ -245,4 +283,90 @@ function mockProfessionalImaging(
             processingTime: Date.now() - startTime
         }
     };
+}
+
+/**
+ * Generate a DALL-E 3 optimized prompt from the settings and images
+ */
+function generateDALLEPrompt(
+    images: string[],
+    settings: any,
+    identityAttributes: any
+): string {
+    const isTryOn = images.length === 2;
+    
+    let prompt = '';
+    
+    if (isTryOn) {
+        // Virtual Try-On Mode
+        prompt = 'Professional fashion photography shoot. ';
+        
+        // Model description from identity attributes
+        if (identityAttributes) {
+            if (identityAttributes.age) prompt += `${identityAttributes.age} year old `;
+            if (identityAttributes.skinTone) prompt += `${identityAttributes.skinTone} `;
+            prompt += 'model wearing ';
+        } else {
+            prompt += 'Professional fashion model wearing ';
+        }
+        
+        // Apparel description from settings
+        if (settings?.apparel && settings.apparel.length > 0) {
+            const apparelDescriptions = settings.apparel.map((item: any) => 
+                item.detectedDescription || item.category.toLowerCase()
+            ).join(' and ');
+            prompt += `${apparelDescriptions}. `;
+        } else {
+            prompt += 'stylish modern clothing. ';
+        }
+        
+    } else {
+        // Product Shoot Mode
+        prompt = 'High-end product photography. ';
+        prompt += 'Professional studio shot of the product with perfect lighting. ';
+    }
+    
+    // Add photography settings
+    if (settings?.apparelControls || settings?.productControls) {
+        const controls = settings.apparelControls || settings.productControls;
+        
+        // Shot type
+        if (controls.shotType?.name) {
+            prompt += `${controls.shotType.name}. `;
+        }
+        
+        // Camera angle
+        if (controls.cameraAngle?.name) {
+            prompt += `Camera angle: ${controls.cameraAngle.name}. `;
+        }
+        
+        // Lighting
+        if (settings?.scene?.lighting?.name) {
+            prompt += `Lighting: ${settings.scene.lighting.name}. `;
+        }
+        
+        // Background
+        if (settings?.scene?.background?.name && settings.scene.background.name !== 'Custom') {
+            prompt += `Background: ${settings.scene.background.name}. `;
+        }
+    }
+    
+    // Style enhancements
+    if (settings?.hyperRealism) {
+        prompt += 'Hyper-realistic, photorealistic quality with exceptional detail. ';
+    }
+    
+    if (settings?.cinematicLook) {
+        prompt += 'Cinematic color grading with film-like quality. ';
+    }
+    
+    // Color grading
+    if (settings?.colorGrade?.name && settings.colorGrade.name !== 'None') {
+        prompt += `Color grade: ${settings.colorGrade.name}. `;
+    }
+    
+    // Final quality descriptors
+    prompt += 'Shot on medium format camera, sharp focus, professional color grading, 8K resolution, magazine quality.';
+    
+    return prompt;
 }

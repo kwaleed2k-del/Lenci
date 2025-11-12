@@ -5,6 +5,16 @@ import type { StudioStoreSlice } from './StudioContext';
 
 export interface ApparelState {
   uploadedModelImage: string | null;
+  uploadedModelRefs?: string[]; // up to 4 additional identity references
+  modelAttributes?: {
+    age?: string; // e.g., 25-30
+    hairType?: string; // e.g., straight, wavy, curly
+    hairColor?: string; // e.g., black, brown, blonde
+    skinTone?: string; // e.g., fair, olive, tan
+    bodyType?: string; // e.g., skinny, athletic, average, plus-size
+    heightCm?: number;
+    weightKg?: number;
+  };
   selectedModels: AIModel[];
   myModels: AIModel[];
   isSavingModel: boolean;
@@ -27,6 +37,10 @@ export interface ApparelState {
 
 export interface ApparelActions {
   setUploadedModelImage: (base64: string | null) => void;
+  addModelReference: (base64: string) => void;
+  removeModelReference: (index: number) => void;
+  clearModelReferences: () => void;
+  setModelAttributes: (attrs: Partial<NonNullable<ApparelState['modelAttributes']>>) => void;
   setSelectedModels: (models: AIModel[]) => void;
   handleModelSelection: (model: AIModel) => void;
   saveModel: (imageB64: string) => Promise<void>;
@@ -67,6 +81,16 @@ const baseControls = {
 
 const initialApparelState: Omit<ApparelState, 'preConceptState'> = {
   uploadedModelImage: null,
+  uploadedModelRefs: [],
+  modelAttributes: {
+    age: '',
+    hairType: '',
+    hairColor: '',
+    skinTone: '',
+    bodyType: '',
+    heightCm: undefined,
+    weightKg: undefined,
+  },
   selectedModels: [],
   myModels: [],
   isSavingModel: false,
@@ -117,6 +141,24 @@ export const createApparelSlice: StudioStoreSlice<ApparelSlice> = (set, get) => 
           set(state => ({ scene: { ...state.scene, lighting: LIGHTING_PRESETS[1] } }));
       }
   },
+
+  addModelReference: (base64) => {
+      set(state => {
+          const existing = state.uploadedModelRefs || [];
+          if (existing.length >= 4) return {};
+          return { uploadedModelRefs: [...existing, base64] } as any;
+      });
+  },
+  removeModelReference: (index) => {
+      set(state => {
+          const existing = (state.uploadedModelRefs || []).slice();
+          if (index < 0 || index >= existing.length) return {};
+          existing.splice(index, 1);
+          return { uploadedModelRefs: existing } as any;
+      });
+  },
+  clearModelReferences: () => set({ uploadedModelRefs: [] } as any),
+  setModelAttributes: (attrs) => set(state => ({ modelAttributes: { ...(state.modelAttributes || {}), ...attrs } } as any)),
   
   setSelectedModels: (models) => set({ 
       selectedModels: models, 

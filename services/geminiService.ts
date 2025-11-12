@@ -1,10 +1,11 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import type { AspectRatio, ArtDirectorSuggestion, ApparelCategory, AIModel } from "../types";
-import { BACKGROUNDS_LIBRARY, LIGHTING_PRESETS, SHOT_TYPES_LIBRARY, EXPRESSIONS, APERTURES_LIBRARY, FOCAL_LENGTHS_LIBRARY, CAMERA_ANGLES_LIBRARY, COLOR_GRADING_PRESETS } from "../constants";
+import type { AspectRatio, ArtDirectorSuggestion, ApparelCategory, AIModel, ProductArtDirectorSuggestion } from "../types";
+import { BACKGROUNDS_LIBRARY, LIGHTING_PRESETS, SHOT_TYPES_LIBRARY, EXPRESSIONS, APERTURES_LIBRARY, FOCAL_LENGTHS_LIBRARY, CAMERA_ANGLES_LIBRARY, COLOR_GRADING_PRESETS, CAMERA_ANGLES_LIBRARY_PRODUCT, LIGHTING_PRESETS_PRODUCT, SURFACE_LIBRARY } from "../constants";
 import { imageComposer } from "../utils/imageComposer";
 import { fashionPromptGenerator } from "../utils/fashionPromptGenerator";
 import { professionalImagingService } from "./professionalImagingService";
+import { overlayLogo } from "../utils/logoOverlay";
 
 const API_KEY = process.env.GEMINI_API_KEY || process.env.API_KEY;
 
@@ -82,14 +83,18 @@ const mockGenerateImage = async (baseParts: any[], aspectRatio: AspectRatio['val
                 
                 console.log(`🎨 Professional AI Imaging - Processing ${images.length} image(s)`);
                 
-                // Extract settings from the settings part if available
+                // Extract settings and identity reference images (if provided)
                 const settingsPart = baseParts.find(p => p.settings);
                 const settings = settingsPart?.settings;
+                const referenceImages = baseParts
+                    .filter(p => p.referenceImage)
+                    .map(p => `data:${p.referenceImage.mimeType};base64,${p.referenceImage.data}`);
+                const identityAttributes = baseParts.find(p => p.identityAttributes)?.identityAttributes;
                 
                 // Use the new professional imaging service with settings
-                const result = await professionalImagingService.processImages(images, aspectRatio as '1:1' | '4:5', settings);
+                const result = await professionalImagingService.processImages(images, aspectRatio as '1:1' | '4:5', settings, referenceImages, identityAttributes);
                 
-                onImageGenerated(result.image, i);
+                await onImageGenerated(result.image, i);
                 return;
                 
             } catch (error) {
@@ -104,7 +109,7 @@ const mockGenerateImage = async (baseParts: any[], aspectRatio: AspectRatio['val
                         width,
                         height
                     });
-                    onImageGenerated(composition, i);
+                    await onImageGenerated(composition, i);
                     return;
                 }
             }
@@ -113,37 +118,45 @@ const mockGenerateImage = async (baseParts: any[], aspectRatio: AspectRatio['val
                 // Single image - just show it with processing message
                 const imageData = `data:${imageParts[0].inlineData.mimeType};base64,${imageParts[0].inlineData.data}`;
                 const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    
-                    if (ctx) {
-                        // Fill background
-                        ctx.fillStyle = '#f8f9fa';
-                        ctx.fillRect(0, 0, width, height);
-                        
-                        // Draw image
-                        const imgWidth = width * 0.8;
-                        const imgHeight = (imgWidth * img.height) / img.width;
-                        const imgX = (width - imgWidth) / 2;
-                        const imgY = (height - imgHeight) / 2;
-                        
-                        ctx.drawImage(img, imgX, imgY, imgWidth, imgHeight);
-                        
-                        // Add processing message
-                        ctx.fillStyle = '#333';
-                        ctx.font = 'bold 18px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('Processing Your Image...', width/2, height - 40);
-                        ctx.font = '14px Arial';
-                        ctx.fillText('AI is analyzing and enhancing your image', width/2, height - 20);
-                        
-                        onImageGenerated(canvas.toDataURL('image/jpeg', 0.9), i);
-                    }
-                };
-                img.src = imageData;
+                await new Promise<void>((resolve, reject) => {
+                    img.onload = async () => {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            
+                            if (ctx) {
+                                // Fill background
+                                ctx.fillStyle = '#f8f9fa';
+                                ctx.fillRect(0, 0, width, height);
+                                
+                                // Draw image
+                                const imgWidth = width * 0.8;
+                                const imgHeight = (imgWidth * img.height) / img.width;
+                                const imgX = (width - imgWidth) / 2;
+                                const imgY = (height - imgHeight) / 2;
+                                
+                                ctx.drawImage(img, imgX, imgY, imgWidth, imgHeight);
+                                
+                                // Add processing message
+                                ctx.fillStyle = '#333';
+                                ctx.font = 'bold 18px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.fillText('Processing Your Image...', width/2, height - 40);
+                                ctx.font = '14px Arial';
+                                ctx.fillText('AI is analyzing and enhancing your image', width/2, height - 20);
+                                
+                                await onImageGenerated(canvas.toDataURL('image/jpeg', 0.9), i);
+                            }
+                            resolve();
+                        } catch (err) {
+                            reject(err);
+                        }
+                    };
+                    img.onerror = reject;
+                    img.src = imageData;
+                });
                 return;
             } catch (error) {
                 console.error("Error processing single image:", error);
@@ -162,7 +175,7 @@ const mockGenerateImage = async (baseParts: any[], aspectRatio: AspectRatio['val
                 reader.onerror = reject;
                 reader.readAsDataURL(blob);
             });
-            onImageGenerated(base64, i);
+            await onImageGenerated(base64, i);
         } catch (error) {
             console.error("Error fetching mock image:", error);
         }
@@ -203,6 +216,94 @@ const mockDescribeImageStyle = async (imageB64: string): Promise<string> => {
     return "A moody, cinematic style with high contrast, desaturated colors, a slight blue tint in the shadows, and a soft, diffused lighting effect from the side. The overall feeling is melancholic and dramatic.";
 };
 
+const mockGetProductArtDirectorSuggestions = async (productImageB64: string): Promise<ProductArtDirectorSuggestion[]> => {
+    console.log("--- MOCK API CALL: getProductArtDirectorSuggestions ---");
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    
+    // Find backgrounds by ID to ensure they exist
+    const beachBg = BACKGROUNDS_LIBRARY.find(b => b.id === 'b6'); // Sunny Beach
+    const rooftopBg = BACKGROUNDS_LIBRARY.find(b => b.id === 'lbn9'); // Rooftop at Sunset
+    const cafeBg = BACKGROUNDS_LIBRARY.find(b => b.id === 'b9'); // Cozy Cafe
+    const cityBg = BACKGROUNDS_LIBRARY.find(b => b.id === 'b4'); // City Street
+    const forestBg = BACKGROUNDS_LIBRARY.find(b => b.id === 'b7'); // Lush Forest
+    const galleryBg = BACKGROUNDS_LIBRARY.find(b => b.id === 'b13'); // Minimalist Gallery
+    
+    return [
+        {
+            id: 'prod-concept-1',
+            conceptName: "Tropical Paradise",
+            cameraAngleId: CAMERA_ANGLES_LIBRARY_PRODUCT[1].id, // Top-Down (Flat Lay)
+            lightingId: LIGHTING_PRESETS_PRODUCT[2].id, // Natural Window Light
+            backgroundId: beachBg?.id || 'b6', // Sunny Beach
+            surfaceId: SURFACE_LIBRARY[1].id, // Polished Wood
+            apertureId: APERTURES_LIBRARY[0].id, // Shallow (f/1.8)
+            focalLengthId: FOCAL_LENGTHS_LIBRARY[1].id, // 35mm
+            colorGradeId: COLOR_GRADING_PRESETS[5].id, // Warm & Golden
+            reasoning: "A vibrant, summery shot with ocean blues and warm wood tones. Perfect for lifestyle products, travel gear, or anything that evokes vacation vibes and relaxation."
+        },
+        {
+            id: 'prod-concept-2',
+            conceptName: "Urban Rooftop",
+            cameraAngleId: CAMERA_ANGLES_LIBRARY_PRODUCT[2].id, // Hero Shot (Low Angle)
+            lightingId: LIGHTING_PRESETS_PRODUCT[0].id, // Clean E-commerce
+            backgroundId: rooftopBg?.id || 'lbn9', // Rooftop at Sunset
+            surfaceId: SURFACE_LIBRARY[2].id, // Textured Concrete
+            apertureId: APERTURES_LIBRARY[0].id, // Shallow
+            focalLengthId: FOCAL_LENGTHS_LIBRARY[3].id, // 85mm
+            colorGradeId: COLOR_GRADING_PRESETS[1].id, // Cinematic Teal & Orange
+            reasoning: "A dynamic cityscape shot with cinematic color grading. Ideal for tech products, urban fashion accessories, or modern lifestyle brands targeting young professionals."
+        },
+        {
+            id: 'prod-concept-3',
+            conceptName: "Cozy Cafe Vibes",
+            cameraAngleId: CAMERA_ANGLES_LIBRARY_PRODUCT[3].id, // 45-Degree
+            lightingId: LIGHTING_PRESETS_PRODUCT[2].id, // Natural Window Light
+            backgroundId: cafeBg?.id || 'b9', // Cozy Cafe
+            surfaceId: SURFACE_LIBRARY[1].id, // Polished Wood
+            apertureId: APERTURES_LIBRARY[0].id, // Shallow
+            focalLengthId: FOCAL_LENGTHS_LIBRARY[2].id, // 50mm
+            colorGradeId: COLOR_GRADING_PRESETS[5].id, // Warm & Golden
+            reasoning: "A warm, inviting cafe setting with natural light streaming through windows. Perfect for food products, beverages, books, or anything that pairs with coffee culture."
+        },
+        {
+            id: 'prod-concept-4',
+            conceptName: "Neon Nights",
+            cameraAngleId: CAMERA_ANGLES_LIBRARY_PRODUCT[0].id, // Eye-Level
+            lightingId: LIGHTING_PRESETS_PRODUCT[4].id, // Luxe & Moody
+            backgroundId: cityBg?.id || 'b4', // City Street
+            surfaceId: SURFACE_LIBRARY[3].id, // Brushed Metal
+            apertureId: APERTURES_LIBRARY[0].id, // Shallow
+            focalLengthId: FOCAL_LENGTHS_LIBRARY[3].id, // 85mm
+            colorGradeId: COLOR_GRADING_PRESETS[1].id, // Cinematic Teal & Orange
+            reasoning: "An edgy, cyberpunk-inspired shot with dramatic lighting and urban energy. Perfect for tech gadgets, gaming accessories, or products targeting a younger, trend-focused audience."
+        },
+        {
+            id: 'prod-concept-5',
+            conceptName: "Garden Fresh",
+            cameraAngleId: CAMERA_ANGLES_LIBRARY_PRODUCT[1].id, // Top-Down
+            lightingId: LIGHTING_PRESETS_PRODUCT[2].id, // Natural Window Light
+            backgroundId: forestBg?.id || 'b7', // Lush Forest
+            surfaceId: SURFACE_LIBRARY[1].id, // Polished Wood
+            apertureId: APERTURES_LIBRARY[0].id, // Shallow
+            focalLengthId: FOCAL_LENGTHS_LIBRARY[1].id, // 35mm
+            colorGradeId: COLOR_GRADING_PRESETS[3].id, // Vibrant & Punchy
+            reasoning: "A fresh, organic shot surrounded by lush greenery and natural textures. Ideal for skincare, wellness products, organic foods, or eco-friendly brands emphasizing sustainability."
+        },
+        {
+            id: 'prod-concept-6',
+            conceptName: "Minimalist Gallery",
+            cameraAngleId: CAMERA_ANGLES_LIBRARY_PRODUCT[2].id, // Hero Shot
+            lightingId: LIGHTING_PRESETS_PRODUCT[1].id, // Dramatic Product
+            backgroundId: galleryBg?.id || 'b13', // Minimalist Gallery
+            surfaceId: SURFACE_LIBRARY[0].id, // Marble Slab
+            apertureId: APERTURES_LIBRARY[0].id, // Shallow
+            focalLengthId: FOCAL_LENGTHS_LIBRARY[3].id, // 85mm
+            colorGradeId: COLOR_GRADING_PRESETS[6].id, // Cool & Crisp
+            reasoning: "An artistic, museum-quality shot with dramatic side lighting and elegant marble. Perfect for luxury items, art pieces, premium cosmetics, or high-end design products."
+        }
+    ];
+};
+
 const mockGetArtDirectorSuggestions = async (garmentImageB64: string): Promise<ArtDirectorSuggestion[]> => {
     console.log("--- MOCK API CALL: getArtDirectorSuggestion ---");
     await new Promise(resolve => setTimeout(resolve, 1200));
@@ -213,7 +314,7 @@ const mockGetArtDirectorSuggestions = async (garmentImageB64: string): Promise<A
             shotTypeId: SHOT_TYPES_LIBRARY[0].id, // Full Body Front
             lightingId: LIGHTING_PRESETS[1].id, // Studio Softbox
             backgroundId: BACKGROUNDS_LIBRARY[1].id, // Studio Grey
-            expressionId: EXPRESSIONS[1].id, // Soft Smile
+            expressionId: EXPRESSIONS[0].id, // Neutral - PRESERVE FACE
             apertureId: APERTURES_LIBRARY[2].id, // Deep (f/8)
             focalLengthId: FOCAL_LENGTHS_LIBRARY[2].id, // 50mm
             cameraAngleId: CAMERA_ANGLES_LIBRARY[0].id, // Eye-Level
@@ -226,7 +327,7 @@ const mockGetArtDirectorSuggestions = async (garmentImageB64: string): Promise<A
             shotTypeId: SHOT_TYPES_LIBRARY[4].id, // Walking Motion
             lightingId: LIGHTING_PRESETS[8].id, // Overcast Day
             backgroundId: BACKGROUNDS_LIBRARY[3].id, // City Street
-            expressionId: EXPRESSIONS[3].id, // Joyful
+            expressionId: EXPRESSIONS[0].id, // Neutral - PRESERVE FACE
             apertureId: APERTURES_LIBRARY[1].id, // Mid-range
             focalLengthId: FOCAL_LENGTHS_LIBRARY[1].id, // 35mm
             cameraAngleId: CAMERA_ANGLES_LIBRARY[0].id, // Eye-Level
@@ -239,7 +340,7 @@ const mockGetArtDirectorSuggestions = async (garmentImageB64: string): Promise<A
             shotTypeId: SHOT_TYPES_LIBRARY[8].id, // Hero Pose
             lightingId: LIGHTING_PRESETS[2].id, // Dramatic Hard Light
             backgroundId: BACKGROUNDS_LIBRARY[7].id, // Brutalist Arch
-            expressionId: EXPRESSIONS[4].id, // Serious
+            expressionId: EXPRESSIONS[0].id, // Neutral - PRESERVE FACE
             apertureId: APERTURES_LIBRARY[0].id, // Shallow
             focalLengthId: FOCAL_LENGTHS_LIBRARY[3].id, // 85mm
             cameraAngleId: CAMERA_ANGLES_LIBRARY[1].id, // Low Angle
@@ -252,7 +353,7 @@ const mockGetArtDirectorSuggestions = async (garmentImageB64: string): Promise<A
             shotTypeId: SHOT_TYPES_LIBRARY[7].id, // Candid Look
             lightingId: LIGHTING_PRESETS[1].id, // Golden Hour
             backgroundId: BACKGROUNDS_LIBRARY[6].id, // Lush Forest
-            expressionId: EXPRESSIONS[6].id, // Serene
+            expressionId: EXPRESSIONS[0].id, // Neutral - PRESERVE FACE
             apertureId: APERTURES_LIBRARY[0].id, // Shallow
             focalLengthId: FOCAL_LENGTHS_LIBRARY[3].id, // 85mm
             cameraAngleId: CAMERA_ANGLES_LIBRARY[0].id, // Eye-Level
@@ -265,12 +366,51 @@ const mockGetArtDirectorSuggestions = async (garmentImageB64: string): Promise<A
             shotTypeId: SHOT_TYPES_LIBRARY[5].id, // Elegant Lean
             lightingId: LIGHTING_PRESETS[14].id, // Window Light
             backgroundId: BACKGROUNDS_LIBRARY[4].id, // Modern Interior
-            expressionId: EXPRESSIONS[0].id, // Neutral
+            expressionId: EXPRESSIONS[0].id, // Neutral - PRESERVE FACE
             apertureId: APERTURES_LIBRARY[1].id, // Mid-range
             focalLengthId: FOCAL_LENGTHS_LIBRARY[1].id, // 35mm
             cameraAngleId: CAMERA_ANGLES_LIBRARY[0].id, // Eye-Level
             colorGradeId: COLOR_GRADING_PRESETS[6].id, // Cool & Crisp
             reasoning: "A sophisticated and clean concept that blends fashion with minimalist architecture. Soft window light provides a high-end feel, perfect for a modern lookbook."
+        },
+        {
+            id: 'concept-6',
+            conceptName: "Minimalist Studio",
+            shotTypeId: SHOT_TYPES_LIBRARY[0].id, // Full Body Front
+            lightingId: LIGHTING_PRESETS[0].id, // Studio Softbox
+            backgroundId: BACKGROUNDS_LIBRARY[0].id, // Studio White
+            expressionId: EXPRESSIONS[0].id, // Neutral - PRESERVE FACE
+            apertureId: APERTURES_LIBRARY[2].id, // Deep
+            focalLengthId: FOCAL_LENGTHS_LIBRARY[2].id, // 50mm
+            cameraAngleId: CAMERA_ANGLES_LIBRARY[0].id, // Eye-Level
+            colorGradeId: COLOR_GRADING_PRESETS[0].id, // None
+            reasoning: "A clean, minimalist studio shot perfect for catalogs and lookbooks. Pure white background keeps all attention on the garment with even, flattering lighting."
+        },
+        {
+            id: 'concept-7',
+            conceptName: "Street Style",
+            shotTypeId: SHOT_TYPES_LIBRARY[4].id, // Walking Motion
+            lightingId: LIGHTING_PRESETS[8].id, // Overcast Day
+            backgroundId: BACKGROUNDS_LIBRARY[3].id, // City Street
+            expressionId: EXPRESSIONS[0].id, // Neutral - PRESERVE FACE
+            apertureId: APERTURES_LIBRARY[0].id, // Shallow
+            focalLengthId: FOCAL_LENGTHS_LIBRARY[1].id, // 35mm
+            cameraAngleId: CAMERA_ANGLES_LIBRARY[0].id, // Eye-Level
+            colorGradeId: COLOR_GRADING_PRESETS[1].id, // Cinematic Teal & Orange
+            reasoning: "An authentic street style shot with cinematic color grading. Perfect for social media and lifestyle campaigns with an urban, contemporary feel."
+        },
+        {
+            id: 'concept-8',
+            conceptName: "Sunset Beach",
+            shotTypeId: SHOT_TYPES_LIBRARY[7].id, // Candid Look
+            lightingId: LIGHTING_PRESETS[1].id, // Golden Hour
+            backgroundId: BACKGROUNDS_LIBRARY[5].id, // Beach/Ocean
+            expressionId: EXPRESSIONS[0].id, // Neutral - PRESERVE FACE
+            apertureId: APERTURES_LIBRARY[0].id, // Shallow
+            focalLengthId: FOCAL_LENGTHS_LIBRARY[3].id, // 85mm
+            cameraAngleId: CAMERA_ANGLES_LIBRARY[0].id, // Eye-Level
+            colorGradeId: COLOR_GRADING_PRESETS[5].id, // Warm & Golden
+            reasoning: "A dreamy beach sunset shot with warm golden tones. Perfect for resort wear, summer collections, or vacation-inspired campaigns."
         }
     ];
 };
@@ -592,21 +732,26 @@ export const geminiService = {
         const { mimeType, data } = parseDataUrl(garmentImageB64);
         const imagePart = { inlineData: { mimeType, data } };
         const textPart = { 
-          text: `As an expert fashion Art Director, analyze the provided garment image. Based on its style, suggest FIVE distinct and varied photoshoot concepts.
+          text: `As an expert fashion Art Director, analyze the provided garment image. Based on its style, suggest EIGHT distinct and varied photoshoot concepts.
 
-          You MUST generate one concept for EACH of the following five categories:
+          You MUST generate one concept for EACH of the following eight categories:
           1.  **E-commerce Clean:** Bright, product-focused, on a minimal studio background.
           2.  **Urban Lifestyle:** Candid, relatable, in a modern city environment.
           3.  **Dramatic Editorial:** A moody, high-fashion, artistic concept.
           4.  **Golden Hour Natural:** A warm, inviting outdoor shot during golden hour.
           5.  **Architectural Lookbook:** A sophisticated shot in a modern architectural setting.
+          6.  **Minimalist Studio:** Clean white studio background with soft lighting.
+          7.  **Street Style:** Authentic urban street photography with cinematic grading.
+          8.  **Sunset Beach:** Dreamy beach/ocean setting with warm golden tones.
 
-          For each concept, provide a unique 'conceptName' and a detailed 'reasoning' focusing ONLY on why the chosen artistic direction is a good creative match for the garment's style. Do NOT describe the garment itself. Return ONLY a JSON array containing exactly FIVE objects. Each object in the array must have all the required properties.
+          **CRITICAL REQUIREMENT:** For ALL concepts, you MUST use expressionId: 'e1' (Neutral expression). This is NON-NEGOTIABLE. The model's face must remain neutral to preserve their identity across all concepts.
+
+          For each concept, provide a unique 'conceptName' and a detailed 'reasoning' focusing ONLY on why the chosen artistic direction is a good creative match for the garment's style. Do NOT describe the garment itself. Return ONLY a JSON array containing exactly EIGHT objects. Each object in the array must have all the required properties.
 
           Valid Shot Type IDs: ${validShotTypeIds.join(', ')}
           Valid Lighting IDs: ${validLightingIds.join(', ')}
           Valid Background IDs: ${validBackgroundIds.join(', ')}
-          Valid Expression IDs: ${validExpressionIds.join(', ')}
+          Valid Expression IDs: ${validExpressionIds.join(', ')} (MUST USE 'e1' for all concepts)
           Valid Aperture IDs: ${validApertureIds.join(', ')}
           Valid Focal Length IDs: ${validFocalLengthIds.join(', ')}
           Valid Camera Angle IDs: ${validCameraAngleIds.join(', ')}
@@ -665,6 +810,103 @@ export const geminiService = {
         console.error("Error getting art director suggestion:", error);
         // fallback to mock on error to avoid breaking the flow
         return mockGetArtDirectorSuggestions(garmentImageB64);
+    }
+  },
+
+  getProductArtDirectorSuggestions: async (productImageB64: string): Promise<ProductArtDirectorSuggestion[]> => {
+    if (!ai) return mockGetProductArtDirectorSuggestions(productImageB64);
+
+    const validCameraAngleIds = CAMERA_ANGLES_LIBRARY_PRODUCT.map(c => c.id);
+    const validLightingIds = LIGHTING_PRESETS_PRODUCT.map(l => l.id);
+    const validBackgroundIds = BACKGROUNDS_LIBRARY.map(b => b.id);
+    const validSurfaceIds = SURFACE_LIBRARY.map(s => s.id);
+    const validApertureIds = APERTURES_LIBRARY.map(a => a.id);
+    const validFocalLengthIds = FOCAL_LENGTHS_LIBRARY.map(f => f.id);
+    const validColorGradeIds = COLOR_GRADING_PRESETS.map(c => c.id);
+
+    try {
+        const { mimeType, data } = parseDataUrl(productImageB64);
+        const imagePart = { inlineData: { mimeType, data } };
+        const textPart = { 
+          text: `As an expert product photography Art Director, analyze the provided product image. Based on its style and characteristics, suggest SIX WILDLY DIFFERENT and CREATIVE photoshoot concepts that showcase the product in unique, eye-catching ways.
+
+          You MUST generate one concept for EACH of the following six categories (be CREATIVE with backgrounds and settings):
+          1.  **Lifestyle Context:** Place the product in a vibrant, real-world setting (beach, cafe, rooftop, garden, etc.)
+          2.  **Urban Energy:** Dynamic city environment with modern, edgy vibes (street, neon lights, graffiti, rooftop terrace)
+          3.  **Natural Wonder:** Organic, nature-inspired setting (forest, ocean, botanical garden, desert, mountains)
+          4.  **Cozy Intimate:** Warm, inviting indoor space (cafe, home interior, library, studio with warm light)
+          5.  **Artistic Statement:** Bold, gallery-worthy shot with dramatic composition (minimalist gallery, brutalist architecture, abstract art space)
+          6.  **Cinematic Drama:** Movie-like scene with strong mood and storytelling (moody lighting, cinematic color grading, dramatic angles)
+
+          **CRITICAL REQUIREMENTS:**
+          - Use DIVERSE backgrounds - avoid repeating Studio White, Studio Grey, or Dark Void
+          - Choose backgrounds like: Beach/Ocean, City Street, Lush Forest, Cozy Cafe, Rooftop Terrace, Minimalist Gallery, Brutalist Arch, Industrial Loft
+          - Mix lighting styles - combine Natural Window Light, Dramatic Product, Luxe & Moody
+          - Vary surfaces - use Marble, Wood, Concrete, Metal, Slate
+          - Apply creative color grades - Cinematic Teal & Orange, Warm & Golden, Vibrant & Punchy, Cool & Crisp
+          - Each concept should feel COMPLETELY DIFFERENT from the others
+
+          For each concept, provide a unique 'conceptName' and a detailed 'reasoning' focusing ONLY on why the chosen artistic direction is a good creative match for the product's style. Do NOT describe the product itself. Return ONLY a JSON array containing exactly SIX objects. Each object in the array must have all the required properties.
+
+          Valid Camera Angle IDs: ${validCameraAngleIds.join(', ')}
+          Valid Lighting IDs: ${validLightingIds.join(', ')}
+          Valid Background IDs: ${validBackgroundIds.join(', ')} (STRONGLY PREFER: b4=City Street, b6=Sunny Beach, b7=Lush Forest, b9=Cozy Cafe, b13=Minimalist Gallery, b14=Industrial Loft, lbn9=Rooftop at Sunset, b16=Neon Cityscape. AVOID: b1, b2, b10, b11)
+          Valid Surface IDs: ${validSurfaceIds.join(', ')}
+          Valid Aperture IDs: ${validApertureIds.join(', ')}
+          Valid Focal Length IDs: ${validFocalLengthIds.join(', ')}
+          Valid Color Grade IDs: ${validColorGradeIds.join(', ')}
+          `
+        };
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: [imagePart, textPart] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                       type: Type.OBJECT,
+                       properties: {
+                            id: { type: Type.STRING, description: "A unique identifier for the concept, e.g., 'prod-concept-1'."},
+                            conceptName: { type: Type.STRING, description: "A short, catchy name for the creative concept, like 'Luxe & Dramatic' or 'Modern Minimalist'." },
+                            cameraAngleId: { type: Type.STRING, description: `One of: ${validCameraAngleIds.join(', ')}` },
+                            lightingId: { type: Type.STRING, description: `One of: ${validLightingIds.join(', ')}` },
+                            backgroundId: { type: Type.STRING, description: `One of: ${validBackgroundIds.join(', ')}` },
+                            surfaceId: { type: Type.STRING, description: `One of: ${validSurfaceIds.join(', ')}` },
+                            apertureId: { type: Type.STRING, description: `One of: ${validApertureIds.join(', ')}` },
+                            focalLengthId: { type: Type.STRING, description: `One of: ${validFocalLengthIds.join(', ')}` },
+                            colorGradeId: { type: Type.STRING, description: `One of: ${validColorGradeIds.join(', ')}` },
+                            reasoning: { type: Type.STRING, description: "A detailed, professional rationale for the creative choices." }
+                       },
+                       required: ["id", "conceptName", "cameraAngleId", "lightingId", "backgroundId", "surfaceId", "apertureId", "focalLengthId", "colorGradeId", "reasoning"]
+                   }
+                },
+            },
+        });
+
+        const jsonString = response.text.trim();
+        const suggestions = JSON.parse(jsonString) as ProductArtDirectorSuggestion[];
+
+        // Validate IDs to ensure Gemini didn't hallucinate
+        for (const suggestion of suggestions) {
+            if (!validCameraAngleIds.includes(suggestion.cameraAngleId) ||
+                !validLightingIds.includes(suggestion.lightingId) ||
+                !validBackgroundIds.includes(suggestion.backgroundId) ||
+                !validSurfaceIds.includes(suggestion.surfaceId) ||
+                !validApertureIds.includes(suggestion.apertureId) ||
+                !validFocalLengthIds.includes(suggestion.focalLengthId) ||
+                !validColorGradeIds.includes(suggestion.colorGradeId)) {
+                console.warn("Gemini returned invalid IDs in a product suggestion, falling back to mock.", suggestion);
+                return mockGetProductArtDirectorSuggestions(productImageB64); // fallback
+            }
+        }
+
+        return suggestions;
+    } catch (error) {
+        console.error("Error getting product art director suggestion:", error);
+        // fallback to mock on error to avoid breaking the flow
+        return mockGetProductArtDirectorSuggestions(productImageB64);
     }
   },
 
@@ -749,10 +991,24 @@ Return ONLY a JSON array of 4 objects.`;
             `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
           );
           
+          // Extract structured settings and references (if provided by promptService)
+          const settingsPart = baseParts.find((p: any) => p.settings);
+          const settings = settingsPart?.settings;
+          const identityAttributes = baseParts.find((p: any) => p.identityAttributes)?.identityAttributes;
+          const referenceImages = baseParts
+            .filter((p: any) => p.referenceImage)
+            .map((p: any) => `data:${p.referenceImage.mimeType};base64,${p.referenceImage.data}`);
+
           try {
-            const result = await professionalImagingService.processImages(images, aspectRatio as '1:1' | '4:5');
+            const result = await professionalImagingService.processImages(
+              images,
+              aspectRatio as '1:1' | '4:5',
+              settings,
+              referenceImages,
+              identityAttributes
+            );
             const imageB64 = result.image;
-            onImageGenerated(imageB64, i);
+            await onImageGenerated(imageB64, i);
             return;
           } catch (error) {
             console.error("Professional imaging failed, falling back to original method:", error);
@@ -814,7 +1070,7 @@ Return ONLY a JSON array of 4 objects.`;
           config: {
             responseModalities: [Modality.IMAGE, Modality.TEXT],
           },
-        }).then(response => {
+        }).then(async response => {
           let imageFound = false;
           if (response.candidates && response.candidates.length > 0) {
             for (const part of response.candidates[0].content.parts) {
@@ -822,7 +1078,7 @@ Return ONLY a JSON array of 4 objects.`;
                 const base64ImageBytes: string = part.inlineData.data;
                 const mimeType = part.inlineData.mimeType;
                 const imageB64 = `data:${mimeType};base64,${base64ImageBytes}`;
-                onImageGenerated(imageB64, i);
+                await onImageGenerated(imageB64, i);
                 imageFound = true;
                 break;
               }

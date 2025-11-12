@@ -9,6 +9,7 @@ interface BasePromptParams {
 interface ApparelPromptParams extends BasePromptParams {
     studioMode: 'apparel';
     uploadedModelImage: string | null;
+    uploadedModelRefs?: string[] | null; // up to 4 additional references
     selectedModel: AIModel | null;
     apparel: ApparelItem[];
     scene: Scene;
@@ -17,6 +18,7 @@ interface ApparelPromptParams extends BasePromptParams {
     promptedModelDescription: string;
     modelLightingDescription: string | null;
     apparelControls: ApparelCreativeControls;
+    modelAttributes?: { age?: string; hairType?: string; hairColor?: string; skinTone?: string; bodyType?: string; heightCm?: number; weightKg?: number } | null;
     baseLookImageB64?: string | null;
 }
 
@@ -361,6 +363,18 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
             const {stagedAssets, scene, productControls} = params;
             if (!stagedAssets || stagedAssets.length === 0) throw new Error("No product assets specified for prompt generation.");
             
+            // Debug log to verify settings
+            console.log('🎨 PRODUCT PROMPT GENERATION:', {
+                backgroundId: scene.background.id,
+                backgroundName: scene.background.name,
+                lightingId: scene.lighting.id,
+                lightingName: scene.lighting.name,
+                surfaceId: productControls.surface.id,
+                surfaceName: productControls.surface.name,
+                cameraAngleId: productControls.cameraAngle.id,
+                cameraAngleName: productControls.cameraAngle.name,
+            });
+            
             const {
                 aperture,
                 focalLength,
@@ -380,11 +394,30 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
 
             const isCustomBackground = scene.background.id === 'custom' && scene.background.type === 'image';
         
-            const backgroundPrompt = isCustomBackground
-                ? `in the environment depicted in the FINAL image provided`
-                : scene.background.type === 'image'
-                ? `in a photorealistic ${scene.background.name}`
-                : `on a clean surface against a simple studio background with a ${scene.background.name.toLowerCase()} color.`;
+            let backgroundPrompt = '';
+            if (isCustomBackground) {
+                backgroundPrompt = `in the environment depicted in the FINAL image provided`;
+            } else if (scene.background.type === 'image') {
+                // Detailed, explicit background descriptions
+                const backgroundDescriptions: Record<string, string> = {
+                    'b4': 'on a vibrant city street with urban architecture, buildings, and street elements visible in the background. The scene should feel dynamic and metropolitan.',
+                    'b6': 'on a sunny beach with sand, ocean water, and coastal elements visible in the background. The scene should feel tropical and vacation-like.',
+                    'b7': 'in a lush forest setting with green foliage, plants, trees, and natural elements surrounding the product. The scene should feel organic and nature-inspired.',
+                    'b9': 'in a cozy cafe interior with warm lighting, wooden furniture, coffee shop elements, and an inviting atmosphere visible in the background.',
+                    'b13': 'in a minimalist art gallery with clean white walls, modern architecture, and a sophisticated museum-like atmosphere.',
+                    'b14': 'in an industrial loft space with exposed brick, concrete, metal elements, and urban warehouse aesthetics.',
+                    'lbn9': 'on a modern rooftop terrace at sunset with city skyline, urban landscape, and golden hour lighting visible in the background.',
+                    'b16': 'on a neon-lit city street at night with colorful lights, urban energy, and cyberpunk-inspired atmosphere.',
+                    'b5': 'in a modern interior space with contemporary furniture, clean lines, and sophisticated design elements.',
+                    'b8': 'in front of brutalist architecture with concrete structures, geometric shapes, and bold architectural elements.',
+                    'b3': 'against a beautiful sunset gradient background with warm pink and orange tones creating a dreamy atmosphere.',
+                    'b11': 'against a soft pastel gradient background with gentle blue and pink tones.',
+                };
+                
+                backgroundPrompt = backgroundDescriptions[scene.background.id] || `in a photorealistic ${scene.background.name} environment`;
+            } else {
+                backgroundPrompt = `on a clean surface against a simple studio background with a ${scene.background.name.toLowerCase()} color.`;
+            }
             
             let lightingPrompt = '';
             if (scene.timeOfDay) {
@@ -397,7 +430,16 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
                 };
                 lightingPrompt = `**LIGHTING (CRITICAL):** ${timeOfDayDescriptions[scene.timeOfDay]}`;
             } else {
-                lightingPrompt = `**LIGHTING (CRITICAL):** Apply ${scene.lighting.description}.`;
+                // Detailed, explicit lighting descriptions
+                const lightingDescriptions: Record<string, string> = {
+                    'lp1': 'The lighting is bright, even, and nearly shadowless - perfect clean e-commerce lighting with soft diffused light from all directions.',
+                    'lp2': 'The lighting is dramatic with a single, hard light source from the side, creating deep shadows and highlighting texture and form.',
+                    'lp3': 'The lighting is soft, natural window light - diffused, directional light as if streaming through a large nearby window, creating gentle shadows.',
+                    'lp4': 'The lighting is direct, even studio ring light from the front, creating a distinct circular catchlight on reflective surfaces.',
+                    'lp5': 'The lighting is luxe and moody - low-key lighting with soft, focused spotlights creating a mysterious, high-end atmosphere.',
+                };
+                
+                lightingPrompt = `**LIGHTING (CRITICAL):** ${lightingDescriptions[scene.lighting.id] || scene.lighting.description}`;
             }
 
             if (lightingDirection.id !== 'ld1') { // Not "As Described"
@@ -446,19 +488,24 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
             let textPrompt = `**PROFESSIONAL PRODUCT PHOTOSHOOT**
 **PRIMARY GOAL:** You are provided with product images that have been isolated on a clean background. Your critical mission is to place these products onto a new surface within a beautifully composed, photorealistic scene, following the precise layout instructions.
 
+**CRITICAL RULE:** You MUST follow ALL the settings below EXACTLY. Every detail about the background, lighting, surface, camera angle, and styling has been carefully chosen and MUST be implemented precisely.
+
 ${productAndStagingPrompt}
 
-**SCENE & STAGING:**
-- The product(s) are ${surface.description}.
-- The overall scene is ${backgroundPrompt}.
-- ${shadowDescription}
+**SCENE & STAGING (MANDATORY):**
+- **SURFACE (CRITICAL):** The product(s) are ${surface.description}. This surface MUST be visible and realistic.
+- **BACKGROUND (CRITICAL):** The overall scene is ${backgroundPrompt}. This background setting is MANDATORY and must be clearly visible and photorealistic.
+- **SHADOWS:** ${shadowDescription}
 ${customProps.trim() ? `- **PROPS (CRITICAL):** The scene must include the following elements, arranged naturally and artistically around the main product: ${customProps.trim()}.\n` : ''}${scene.environmentalEffects.trim() ? `- **ENVIRONMENTAL EFFECTS:** The scene must include these atmospheric effects: ${scene.environmentalEffects.trim()}.\n` : ''}
 - ${lightingPrompt}
+- **IMPORTANT:** The background, surface, and lighting MUST all work together cohesively to create the specified environment. Do NOT default to a plain studio background.
 
 **CAMERA & LENS:**
 - The photo is ${cameraAngle.description}.
 - The photo is shot ${aperture.description}.
 - The photo is shot with ${focalLength.description}.
+`;
+            textPrompt += `
 
 **FINAL IMAGE STYLE & QUALITY:**
 - **Aspect Ratio (CRITICAL):** The final image output MUST have an aspect ratio of exactly ${aspectRatio}.
@@ -494,6 +541,32 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
                 const { mimeType, data } = parseDataUrl(scene.background.value);
                 parts.push({ inlineData: { mimeType, data } });
             }
+
+            // Provide structured settings so server-side imaging can follow AI Director settings exactly
+            parts.push({
+                settings: {
+                    // Product controls
+                    cameraAngle,
+                    aperture,
+                    focalLength,
+                    colorGrade,
+                    styleStrength,
+                    isHyperRealismEnabled,
+                    cinematicLook,
+                    surface,
+                    productMaterial,
+                    productShadow,
+                    customProps,
+                    // Scene
+                    background: scene.background,
+                    lighting: scene.lighting,
+                    lightingDirection,
+                    lightQuality,
+                    catchlightStyle,
+                    sceneProps: scene.sceneProps,
+                    environmentalEffects: scene.environmentalEffects,
+                }
+            });
 
             return { parts };
         }
@@ -555,11 +628,36 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
                 modelPrompt += `    - No specific hair or makeup styles provided; maintain the natural look from the image.\n`
             }
         
-            modelPrompt += `- **CRITICAL RULE:** Do NOT change the model's core facial features to match the new styling. Ignore any clothing, background, or pose in the reference image.\n\n`;
+            modelPrompt += `- **CRITICAL RULE:** Do NOT change the model's core facial features to match the new styling. Ignore any clothing, background, or pose in the reference image.\n`;
+
+            // Structured identity attributes
+            const attrs = (params as any).modelAttributes || {};
+            const attrLines: string[] = [];
+            if (attrs.age) attrLines.push(`Age: ${attrs.age}`);
+            if (attrs.hairType) attrLines.push(`Hair Type: ${attrs.hairType}`);
+            if (attrs.hairColor) attrLines.push(`Hair Color: ${attrs.hairColor}`);
+            if (attrs.skinTone) attrLines.push(`Skin Tone: ${attrs.skinTone}`);
+            if (attrs.bodyType) attrLines.push(`Body Type: ${attrs.bodyType}`);
+            if (typeof attrs.heightCm === 'number') attrLines.push(`Height: ${attrs.heightCm} cm`);
+            if (typeof attrs.weightKg === 'number') attrLines.push(`Weight: ${attrs.weightKg} kg`);
+            if (attrLines.length > 0) {
+                modelPrompt += `\n- **IDENTITY ATTRIBUTES (STRICT):** ${attrLines.join(', ')}. These attributes must be respected exactly.\n\n`;
+            } else {
+                modelPrompt += `\n`;
+            }
         
             textPrompt += modelPrompt;
             const { mimeType, data } = parseDataUrl(uploadedModelImage);
             parts.push({ inlineData: { mimeType, data } });
+
+            // Additional model reference images (do not count toward primary assets for server)
+            const refs: string[] = (params as any).uploadedModelRefs || [];
+            for (const ref of refs.slice(0, 3)) { // up to 3 extra (total 4)
+                try {
+                    const r = parseDataUrl(ref);
+                    parts.push({ referenceImage: { mimeType: r.mimeType, data: r.data } });
+                } catch {}
+            }
 
         } else if (selectedModel) {
             textPrompt += `**1. MODEL IDENTITY & STYLING (Source: Text Description + User Settings)**
@@ -761,6 +859,12 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
                     negativePrompt: apparelControls.negativePrompt
                 }
             });
+
+            // Identity attributes as structured data for server-side prompt
+            const ia = (params as any).modelAttributes || null;
+            if (ia) {
+                parts.push({ identityAttributes: ia });
+            }
         }
 
         return { parts };
