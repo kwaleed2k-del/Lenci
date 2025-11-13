@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shirt, X, Package, Layers, ImageIcon, Sparkles, ImageUp } from 'lucide-react';
+import { User, Shirt, X, Package, Layers, Video, Film } from 'lucide-react';
 import { ModelSelectionPanel } from '../model/ModelSelectionPanel';
 import { ApparelUploader } from '../apparel/ApparelUploader';
 import { TabButton } from './TabButton';
 import { useStudio } from '../../context/StudioContext';
 import { ProductUploader } from '../product/ProductUploader';
 import { PropsPanel } from '../product/PropsPanel';
-import { MockupUploader } from '../design/MockupUploader';
-import { DesignUploader } from '../design/DesignUploader';
-import { ReimagineUploader } from '../reimagine/ReimagineUploader';
+import { VideoSourceUploader } from '../video/VideoSourceUploader';
+import { VideoAnimationPanel } from '../video/VideoAnimationPanel';
 
-type Tab = 'model' | 'apparel' | 'product' | 'props' | 'mockup' | 'design' | 'reimagine';
+type Tab = 'model' | 'apparel' | 'product' | 'props' | 'video' | 'animation';
 
 interface InputPanelProps {
     onClose: () => void;
@@ -25,10 +24,8 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onClose }) => {
             setActiveTab('model');
         } else if (studioMode === 'product') {
             setActiveTab('product');
-        } else if (studioMode === 'design') {
-            setActiveTab('mockup');
-        } else if (studioMode === 'reimagine') {
-            setActiveTab('reimagine');
+        } else if (studioMode === 'video') {
+            setActiveTab('video');
         }
     }, [studioMode]);
 
@@ -49,16 +46,12 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onClose }) => {
                         <TabButton tabId="props" activeTab={activeTab} onClick={(tab) => setActiveTab(tab)} icon={<Layers size={16} />} label="Props" />
                     </>
                 );
-            case 'design':
+            case 'video':
                 return (
                     <>
-                        <TabButton tabId="mockup" activeTab={activeTab} onClick={(tab) => setActiveTab(tab)} icon={<ImageIcon size={16} />} label="Mockup" />
-                        <TabButton tabId="design" activeTab={activeTab} onClick={(tab) => setActiveTab(tab)} icon={<Sparkles size={16} />} label="Design" />
+                        <TabButton tabId="video" activeTab={activeTab} onClick={(tab) => setActiveTab(tab)} icon={<Film size={16} />} label="Source Image" />
+                        <TabButton tabId="animation" activeTab={activeTab} onClick={(tab) => setActiveTab(tab)} icon={<Video size={16} />} label="Animation" />
                     </>
-                );
-            case 'reimagine':
-                return (
-                     <TabButton tabId="reimagine" activeTab={activeTab} onClick={(tab) => setActiveTab(tab)} icon={<ImageUp size={16} />} label="Source Photo" />
                 );
             default:
                 return null;
@@ -71,9 +64,8 @@ export const InputPanel: React.FC<InputPanelProps> = ({ onClose }) => {
             case 'apparel': return <ApparelUploader />;
             case 'product': return <ProductUploader />;
             case 'props': return <PropsPanel />;
-            case 'mockup': return <MockupUploader />;
-            case 'design': return <DesignUploader />;
-            case 'reimagine': return <ReimagineUploader />;
+            case 'video': return <VideoSourceUploader />;
+            case 'animation': return <VideoAnimationPanel />;
             default: return null;
         }
     }

@@ -597,54 +597,128 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
             garmentStyling,
         } = apparelControls;
 
-        let textPrompt = `**MASTER PHOTOSHOOT DIRECTIVE**
+        let textPrompt = `**🚨 CRITICAL WARNING - READ THIS FIRST 🚨**
+
+**THE FACE MUST BE 100% IDENTICAL - ZERO TOLERANCE FOR CHANGES**
+
+This is a virtual try-on photoshoot. The ONLY thing that should change is the CLOTHING and POSE. The FACE must remain EXACTLY the same as the reference image. Any alteration to facial features, bone structure, skin tone, eye color, nose shape, lip shape, jawline, or any other facial characteristic is a COMPLETE FAILURE.
+
+**ABSOLUTE RULE:** If you change even a single pixel of the face structure, you have failed this task. The face must be pixel-perfect identical to the reference image.
+
+---
+
+**MASTER PHOTOSHOOT DIRECTIVE**
 
 **NON-NEGOTIABLE RULES OF EXECUTION:**
-1.  **STRICT MODULARITY:** You are given separate instructions for the MODEL, APPAREL, POSE, and SCENE. Each is independent and absolute. Do not infer details from one section to another (e.g., do not use the background from the model image, or the pose from the apparel image).
-2.  **INPUTS ARE LAW:** You MUST follow the text descriptions and use the provided image assets as the definitive source of truth. User settings override all defaults.
-3.  **ABSOLUTE APPAREL ACCURACY:** The apparel's design, pattern, and color must be derived *exclusively* from the provided apparel images.
-4.  **IDENTITY PRESERVATION:** The human model's identity (face, body, etc.) must be preserved with 100% accuracy from the provided model source (image or text).
+1.  **FACIAL IDENTITY IS SACRED:** The face from the reference image is ABSOLUTE and UNTOUCHABLE. You are photographing the EXACT SAME PERSON. No exceptions.
+2.  **STRICT MODULARITY:** You are given separate instructions for the MODEL, APPAREL, POSE, and SCENE. Each is independent and absolute. Do not infer details from one section to another (e.g., do not use the background from the model image, or the pose from the apparel image).
+3.  **INPUTS ARE LAW:** You MUST follow the text descriptions and use the provided image assets as the definitive source of truth. User settings override all defaults.
+4.  **ABSOLUTE APPAREL ACCURACY:** The apparel's design, pattern, and color must be derived *exclusively* from the provided apparel images.
+5.  **IDENTITY PRESERVATION:** The human model's identity (face, body, etc.) must be preserved with 100% accuracy from the provided model source (image or text).
 
 ---
 `;
         
         // --- 1. MODEL ---
         if (uploadedModelImage) {
-            let modelPrompt = `**1. MODEL IDENTITY & STYLING (Source: First Image + User Settings)**
-- **FACE (CRITICAL):** Recreate the person's face from the first image with perfect accuracy. This is the highest priority.
-- **BODY (Conditional Logic):**
-    - If the reference image shows the model's body (full-body or waist-up), you MUST recreate their body type and proportions with the same accuracy as the face.
-    - If the reference image is a close-up headshot, you MUST generate a new, realistic, and proportionate body that is a perfect match for the model's face, apparent age, gender, and ethnicity.
+            let modelPrompt = `**1. MODEL IDENTITY & PHYSICAL PRESERVATION (Source: First Reference Image)**
 
-- **STYLING OVERRIDES (Source: User Settings):** Apply the following styling TO the recreated person:\n`;
-            
-            if (hairStyle.trim()) {
-                modelPrompt += `    - **HAIR:** The model's hair is styled as: "${hairStyle.trim()}".\n`;
-            }
-            if (makeupStyle.trim()) {
-                modelPrompt += `    - **MAKEUP:** The model's makeup is a "${makeupStyle.trim()}" look.\n`;
-            }
-            if (!hairStyle.trim() && !makeupStyle.trim()) {
-                modelPrompt += `    - No specific hair or makeup styles provided; maintain the natural look from the image.\n`
-            }
-        
-            modelPrompt += `- **CRITICAL RULE:** Do NOT change the model's core facial features to match the new styling. Ignore any clothing, background, or pose in the reference image.\n`;
+**🚨🚨🚨 ABSOLUTE FACIAL IDENTITY PRESERVATION - HIGHEST PRIORITY 🚨🚨🚨**
+
+**CRITICAL INSTRUCTIONS - READ CAREFULLY:**
+This is a professional photoshoot where maintaining the EXACT IDENTITY of the model is paramount. You are NOT creating a similar-looking person. You are photographing THIS EXACT PERSON in new clothing. The face must be 100% IDENTICAL to the reference image - pixel-perfect, documentary-level accuracy.
+
+**FACIAL IDENTITY LOCK (NON-NEGOTIABLE - ZERO TOLERANCE):**
+- **Face Structure:** Replicate the EXACT facial bone structure, proportions, and geometry from the reference image. Every bone, every angle, every measurement must match.
+- **Face Shape:** Preserve the precise face shape (oval/round/square/heart/diamond/oblong) with identical width-to-length ratios. Do not round, sharpen, or alter the shape.
+- **Skin Tone:** Match the EXACT skin tone, undertones, and complexion from the reference image with 100% accuracy. Same color, same texture, same imperfections.
+- **Eyes:** Preserve the EXACT eye shape, size, spacing, color, eyelid structure, and gaze direction. The eyes are the most recognizable feature - they must be identical.
+- **Eyebrows:** Maintain the precise eyebrow shape, thickness, arch, and positioning. Do not thin, thicken, or reshape them.
+- **Nose:** Replicate the EXACT nose shape, size, bridge width, nostril shape, and tip structure. The nose is a key identifier - it must match perfectly.
+- **Lips:** Preserve the precise lip shape, fullness, cupid's bow, and natural color. Do not make them fuller, thinner, or change their shape.
+- **Jawline & Chin:** Maintain the exact jawline definition, chin shape, and lower face structure. This defines the face shape - it must be identical.
+- **Cheekbones:** Preserve the exact cheekbone prominence, placement, and facial contours. Do not enhance or reduce them.
+- **Facial Features Spacing:** Maintain the precise distances between eyes, nose-to-mouth ratio, and overall facial proportions. These ratios are unique to each person.
+- **Unique Identifiers:** Preserve any moles, freckles, scars, dimples, or other distinguishing facial features. These are critical for recognition.
+- **Age Markers:** Maintain any natural age indicators like fine lines, crow's feet, or skin texture EXACTLY as shown. Do not smooth or remove them.
+- **Facial Hair:** If the reference shows facial hair (mustache, beard, stubble), preserve it EXACTLY. If there is no facial hair, do not add any.
+- **Hairline:** Preserve the exact hairline shape and position from the reference image.
+
+**❌ FORBIDDEN CHANGES - THESE WILL RESULT IN COMPLETE FAILURE:**
+- DO NOT alter facial bone structure under any circumstances - this is the foundation of identity
+- DO NOT change eye shape, size, or color - eyes are the most recognizable feature
+- DO NOT modify nose shape or size - the nose is a key identifier
+- DO NOT adjust lip shape or fullness - lips define the lower face
+- DO NOT change face shape or proportions - this is what makes a person recognizable
+- DO NOT alter skin tone or complexion - skin color is a fundamental identifier
+- DO NOT smooth out or enhance facial features - preserve all natural details
+- DO NOT apply "beauty filters" or idealized improvements - this is documentary photography
+- DO NOT make the face look younger, older, or more attractive - preserve the exact age appearance
+- DO NOT change gender presentation of facial features - maintain the exact gender expression
+- DO NOT add or remove facial hair - preserve exactly as shown
+- DO NOT change the hairline - it's part of facial structure
+- DO NOT adjust facial symmetry - preserve natural asymmetry if present
+- This is DOCUMENTARY-LEVEL accuracy required - the face must be recognizable as the EXACT SAME PERSON
+
+**BODY & PHYSICAL ATTRIBUTES:**`;
 
             // Structured identity attributes
             const attrs = (params as any).modelAttributes || {};
-            const attrLines: string[] = [];
-            if (attrs.age) attrLines.push(`Age: ${attrs.age}`);
-            if (attrs.hairType) attrLines.push(`Hair Type: ${attrs.hairType}`);
-            if (attrs.hairColor) attrLines.push(`Hair Color: ${attrs.hairColor}`);
-            if (attrs.skinTone) attrLines.push(`Skin Tone: ${attrs.skinTone}`);
-            if (attrs.bodyType) attrLines.push(`Body Type: ${attrs.bodyType}`);
-            if (typeof attrs.heightCm === 'number') attrLines.push(`Height: ${attrs.heightCm} cm`);
-            if (typeof attrs.weightKg === 'number') attrLines.push(`Weight: ${attrs.weightKg} kg`);
-            if (attrLines.length > 0) {
-                modelPrompt += `\n- **IDENTITY ATTRIBUTES (STRICT):** ${attrLines.join(', ')}. These attributes must be respected exactly.\n\n`;
+            const hasDetailedAttrs = Object.keys(attrs).length > 0 && (attrs.estimatedHeightCm || attrs.heightCm || attrs.bodyType || attrs.estimatedAge);
+            
+            if (hasDetailedAttrs) {
+                modelPrompt += `
+- **Height:** ${attrs.estimatedHeightCm || attrs.heightCm || 170} cm (${Math.round((attrs.estimatedHeightCm || attrs.heightCm || 170) / 2.54)} inches) - This MUST be reflected in the model's proportions
+- **Weight:** ${attrs.estimatedWeightKg || attrs.weightKg || 65} kg (${Math.round((attrs.estimatedWeightKg || attrs.weightKg || 65) * 2.20462)} lbs) - Body mass and frame size must match
+- **Body Type:** ${attrs.bodyType || 'average build'} - Muscle tone, body fat distribution, and frame size must match this exactly
+- **Age:** ${attrs.estimatedAge || attrs.age || '25-30'} - All age-appropriate physical characteristics must be consistent
+- **Skin Tone:** ${attrs.skinTone || 'as shown in reference'} - Match undertones (warm/cool/neutral) precisely
+- **Face Shape:** ${attrs.faceShape || 'as shown in reference'} - Critical for identity recognition
+- **Eye Color:** ${attrs.eyeColor || 'as shown in reference'}
+- **Eyebrow Shape:** ${attrs.eyebrowShape || 'natural'} - Maintain exact thickness and arch
+- **Nose Shape:** ${attrs.noseShape || 'as shown in reference'} - Bridge, tip, and nostril structure
+- **Lip Shape:** ${attrs.lipShape || 'as shown in reference'} - Fullness and cupid's bow definition
+- **Jawline:** ${attrs.jawlineType || 'as shown in reference'} - Critical for facial structure
+- **Cheekbone Structure:** ${attrs.cheekboneStructure || 'as shown in reference'} - Prominence and placement
+- **Facial Structure Notes:** ${attrs.facialStructure || 'balanced proportions as shown'}`;
             } else {
-                modelPrompt += `\n`;
+                modelPrompt += `
+- **Body Type & Proportions:** Analyze the reference image carefully. If full-body is shown, replicate the exact body type, proportions, height, and build. If only face/headshot is shown, generate a realistic, proportionate body that matches the person's apparent age, gender, ethnicity, and facial structure.
+- **Physical Consistency:** Ensure all physical attributes (height, weight, muscle tone, frame size) are internally consistent and realistic for this specific person.`;
             }
+
+            if (attrs.hairType || attrs.hairColor) {
+                modelPrompt += `
+- **Hair (Original):** ${attrs.hairType || 'natural'} hair, ${attrs.hairColor || 'as shown in reference'}`;
+            }
+            
+            modelPrompt += `\n\n**STYLING MODIFICATIONS (Applied AFTER preserving identity):**`;
+            
+            if (hairStyle.trim()) {
+                modelPrompt += `\n- **Hair Styling:** Style the model's hair as: "${hairStyle.trim()}" - MAINTAIN the original hair color, type, and texture. Only change the styling/arrangement.`;
+            }
+            if (makeupStyle.trim()) {
+                modelPrompt += `\n- **Makeup Application:** Apply "${makeupStyle.trim()}" makeup look - DO NOT alter underlying facial features, bone structure, or skin tone. Makeup should enhance, not transform.`;
+            }
+            if (!hairStyle.trim() && !makeupStyle.trim()) {
+                modelPrompt += `\n- Keep the model's natural hair and makeup as shown in the reference image.`;
+            }
+            
+            modelPrompt += `\n\n**VERIFICATION CHECKLIST (MANDATORY BEFORE GENERATION):**
+Before finalizing the image, you MUST verify:
+1. The face is 100% IDENTICAL to the reference image - every feature matches exactly
+2. Someone who knows this person would instantly recognize them - no hesitation, no doubt
+3. The face looks like the same person simply changed clothes and pose - nothing else changed
+4. All facial features (eyes, nose, lips, jawline, cheekbones) are pixel-perfect matches
+5. Skin tone, age markers, and unique identifiers are preserved exactly
+6. The face has NOT been enhanced, smoothed, or idealized in any way
+
+If ANY of these checks fail, you MUST regenerate the image with stricter adherence to the reference face.
+
+**REFERENCE IMAGE INTERPRETATION:**
+- USE: Face, facial features, skin tone, body type, proportions, physical attributes - ALL MUST BE IDENTICAL
+- IGNORE: Clothing, background, lighting, pose, camera angle - THESE CAN CHANGE
+- ONLY the person's IDENTITY transfers to the new photoshoot - THE FACE IS ABSOLUTE\n\n`;
         
             textPrompt += modelPrompt;
             const { mimeType, data } = parseDataUrl(uploadedModelImage);
@@ -789,8 +863,13 @@ ${styleDescription ? `- **Stylistic Goal:** The final image must match the artis
 
         // --- 6. FINAL IMAGE STYLE & QUALITY ---
         textPrompt += `**6. FINAL IMAGE STYLE & QUALITY (Source: User Settings)**
+
+**🚨 FINAL REMINDER - FACIAL IDENTITY IS ABSOLUTE 🚨**
+Before generating the final image, verify one last time: The face must be 100% IDENTICAL to the reference image. Every feature, every proportion, every detail must match exactly. This is not a suggestion - it is the PRIMARY requirement. If the face is not identical, the entire image is a failure.
+
 - **ASPECT RATIO (CRITICAL):** The final image output MUST have an aspect ratio of exactly ${aspectRatio}.
 - **QUALITY:** This is a professional photoshoot. The final output must be an ultra-high-quality, hyperrealistic, and tack-sharp photograph, indistinguishable from a real photo. Emulate a high-end DSLR camera (e.g., Canon EOS R5) with a professional prime lens. Pay extreme attention to detail, especially in fabric texture, lighting, shadows, and skin detail.
+- **FACIAL ACCURACY CHECK:** The face in the generated image must be instantly recognizable as the EXACT SAME PERSON from the reference image. If someone who knows this person would not immediately recognize them, you have failed.
 `;
        if (styleDescription) {
             textPrompt += `- **STYLISTIC GOAL:** The final image must match the artistic style described as: "${styleDescription}". Apply this style with an influence of approximately ${styleStrength}%. A value of 100% is a perfect match, 50% is a subtle blend.\n`;

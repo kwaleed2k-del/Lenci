@@ -3,167 +3,230 @@ import { Square, RectangleVertical, RectangleHorizontal } from 'lucide-react';
 import type { AIModel, Background, Lighting, Expression, Aperture, Animation, AspectRatio, FocalLength, Fabric, ColorGrade, ShotType, CameraAngle, LightingDirection, LightQuality, CatchlightStyle, Surface, EcommercePack, PackShot, DesignPlacement, MockupStyle, FabricStyle, DesignLightingStyle, DesignCameraAngle, PrintStyle, Material, ProductEcommercePack, ProductPackShot, ProductSceneTemplate, DesignSceneTemplate } from './types';
 
 export const MODELS_LIBRARY: AIModel[] = [
-    { 
-        id: 'm1', 
-        name: 'Sasha', 
-        gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/3772510/pexels-photo-3772510.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'A professional female fashion model in her early 20s, with long, straight blonde hair, sharp cheekbones, and a confident gaze. She has a slender, athletic build. European ethnicity.',
-        region: 'European',
-        country: 'Germany'
-    },
-    { 
-        id: 'm2', 
-        name: 'Kenji', 
-        gender: 'Male',
-        thumbnail: 'https://images.pexels.com/photos/428340/pexels-photo-428340.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'A male streetwear model in his mid-20s, with short, dark, curly hair and a friendly smile. He has a lean build and a cool, relaxed demeanor. East Asian ethnicity.',
-        region: 'Asian',
-        country: 'Japan'
-    },
-    { 
-        id: 'm3', 
-        name: 'Maria', 
-        gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/3778223/pexels-photo-3778223.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'A versatile female commercial model in her late 20s, with warm brown skin, shoulder-length wavy dark hair, and expressive brown eyes. She has an average build and a warm, approachable look. Latina/Hispanic ethnicity.',
-        region: 'Latin',
-        country: 'Mexico'
-    },
-     { 
-        id: 'm4', 
-        name: 'David', 
-        gender: 'Male',
-        thumbnail: 'https://images.pexels.com/photos/936043/pexels-photo-936043.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'A rugged male model in his early 30s, with a short beard, piercing blue eyes, and light brown hair. He has a muscular build, suitable for outdoor or workwear brands. Caucasian ethnicity.',
-        region: 'European',
-        country: 'USA'
-    },
-    { 
-        id: 'm5', 
-        name: 'Priya', 
-        gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/3762800/pexels-photo-3762800.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'A graceful female fashion model in her mid-20s, with long, dark wavy hair, expressive almond-shaped brown eyes, and warm olive skin. She has a poised and elegant presence. South Asian/Indian ethnicity.',
-        region: 'Asian',
-        country: 'India'
-    },
-    { 
-        id: 'm6', 
-        name: 'Chloe', 
-        gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/3220617/pexels-photo-3220617.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'An approachable female model in her early 20s with freckles, red curly hair, and green eyes. She has a slim build and a cheerful, friendly vibe. Irish ethnicity.',
-        region: 'European',
-        country: 'Ireland'
-    },
-    { 
-        id: 'm7', 
-        name: 'Jamal', 
-        gender: 'Male',
-        thumbnail: 'https://images.pexels.com/photos/1853542/pexels-photo-1853542.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'A sharp male model in his late 20s with short, well-groomed dreadlocks and a confident expression. He has a strong jawline and an athletic build. African-American ethnicity.',
-        region: 'African',
-        country: 'USA'
-    },
-    { 
-        id: 'm8', 
-        name: 'Isabella', 
-        gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/3755440/pexels-photo-3755440.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'A high-fashion female model in her early 20s, with sleek, black hair in a bob cut, sharp angular features, and a sophisticated look. She has a tall, slender frame. Brazilian ethnicity.',
-        region: 'Latin',
-        country: 'Brazil'
-    },
-    { 
-        id: 'm9', 
-        name: 'Omar', 
-        gender: 'Male',
-        thumbnail: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'A mature male model in his late 30s with salt-and-pepper hair, a well-maintained short beard, and kind eyes. He has a distinguished and trustworthy appearance. Middle Eastern ethnicity.',
-        region: 'Middle Eastern',
-        country: 'Egypt'
-    },
-    { 
-        id: 'm10', 
-        name: 'Anja', 
-        gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/3775164/pexels-photo-3775164.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2', 
-        description: 'A striking female model with platinum blonde short hair, bold eyebrows, and an androgynous look. She is in her mid-20s with a lean, strong physique. Scandinavian ethnicity.',
-        region: 'European',
-        country: 'Sweden'
-    },
     {
-        id: 'm11',
-        name: 'Aisha',
+        id: 'm1',
+        name: "Layla Al-Rahman",
         gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2',
-        description: 'A vibrant female model from Mumbai in her early 20s, with expressive dark eyes, long black hair, and a warm, engaging smile. Perfect for both traditional and contemporary fashion. Indian ethnicity.',
-        region: 'Asian',
-        country: 'India'
-    },
-    {
-        id: 'm12',
-        name: 'Jackson',
-        gender: 'Male',
-        thumbnail: 'https://images.pexels.com/photos/1212984/pexels-photo-1212984.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2',
-        description: 'A male model from California in his mid-20s, with a sun-kissed look, blonde hair, and a laid-back, athletic vibe. Ideal for lifestyle and sportswear brands. Caucasian ethnicity.',
-        region: 'European',
-        country: 'USA'
-    },
-    {
-        id: 'm13',
-        name: 'Amélie',
-        gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/1382731/pexels-photo-1382731.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2',
-        description: 'An elegant female model from Paris in her late 20s, with chic brunette hair, classic features, and a sophisticated aura. Embodies effortless French style. European ethnicity.',
-        region: 'European',
-        country: 'France'
-    },
-    {
-        id: 'm14',
-        name: 'Li Wei',
-        gender: 'Male',
-        thumbnail: 'https://images.pexels.com/photos/2896434/pexels-photo-2896434.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2',
-        description: 'A sharp, high-fashion male model from Shanghai in his early 20s. Features striking, angular features, and a modern, edgy look. East Asian ethnicity.',
-        region: 'Asian',
-        country: 'China'
-    },
-    {
-        id: 'm15',
-        name: 'Sofia',
-        gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/1848565/pexels-photo-1848565.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2',
-        description: 'A charismatic female model from Colombia with tan skin, voluminous curly brown hair, and a joyful, energetic presence. Perfect for vibrant and summer collections. Latina ethnicity.',
-        region: 'Latin',
-        country: 'Colombia'
-    },
-    {
-        id: 'm16',
-        name: 'Khalid',
-        gender: 'Male',
-        thumbnail: 'https://images.pexels.com/photos/1516680/pexels-photo-1516680.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2',
-        description: 'A luxurious male model from Dubai in his early 30s, with a perfectly groomed beard, intense gaze, and a polished, upscale look. Suited for luxury and formal wear. Emirati ethnicity.',
+        thumbnail: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=533&fit=crop",
+        description: "Arabian elegance personified. A stunning female model with graceful features, perfect for luxury and high-fashion campaigns. Middle Eastern ethnicity.",
         region: 'Middle Eastern',
         country: 'UAE'
     },
     {
-        id: 'm17',
-        name: 'Adanna',
+        id: 'm2',
+        name: "Omar Hassan",
+        gender: 'Male',
+        thumbnail: "https://images.unsplash.com/photo-1603415526960-f7e0328c63b1?w=400&h=533&fit=crop",
+        description: "Contemporary Middle Eastern male model with strong features and confident presence. Perfect for modern menswear and luxury brands. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'Saudi Arabia'
+    },
+    {
+        id: 'm3',
+        name: "Sophia Chen",
         gender: 'Female',
-        thumbnail: 'https://images.pexels.com/photos/2776353/pexels-photo-2776353.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2',
-        description: 'A stunning female model from Nigeria with rich dark skin, braided hair, and a powerful, regal presence. Ideal for bold and couture fashion. Nigerian ethnicity.',
+        thumbnail: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=533&fit=crop",
+        description: "Fashion and editorial powerhouse with striking features. Versatile model for high-end campaigns and editorial spreads. East Asian ethnicity.",
+        region: 'Asian',
+        country: 'China'
+    },
+    {
+        id: 'm4',
+        name: "Yasmin Al-Farsi",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=533&fit=crop",
+        description: "Arabian couture specialist with regal bearing and sophisticated style. Ideal for luxury fashion and bridal collections. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'Qatar'
+    },
+    {
+        id: 'm5',
+        name: "Marcus Johnson",
+        gender: 'Male',
+        thumbnail: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=533&fit=crop",
+        description: "Urban streetwear icon with contemporary edge. Perfect for casual wear, athletic brands, and lifestyle campaigns. African-American ethnicity.",
         region: 'African',
-        country: 'Nigeria'
+        country: 'USA'
+    },
+    {
+        id: 'm6',
+        name: "Khalid Al-Maktoum",
+        gender: 'Male',
+        thumbnail: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=533&fit=crop",
+        description: "Traditional Arabian heritage meets modern style. Distinguished presence ideal for luxury menswear and cultural campaigns. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'UAE'
+    },
+    {
+        id: 'm7',
+        name: "Fatima Al-Sayed",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=533&fit=crop",
+        description: "Arabian modest fashion specialist with elegant demeanor. Perfect for contemporary modest wear and traditional fashion. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'Egypt'
+    },
+    {
+        id: 'm8',
+        name: "Isabella Rodriguez",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=533&fit=crop",
+        description: "Vibrant Latin beauty with passionate energy. Ideal for colorful collections and summer campaigns. Latin American ethnicity.",
+        region: 'Latin',
+        country: 'Colombia'
+    },
+    {
+        id: 'm9',
+        name: "Ahmed Al-Nasser",
+        gender: 'Male',
+        thumbnail: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=533&fit=crop",
+        description: "Arabian executive style leader with polished appearance. Perfect for business wear and corporate campaigns. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'Kuwait'
+    },
+    {
+        id: 'm10',
+        name: "Priya Sharma",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=533&fit=crop",
+        description: "South Asian fashion icon blending traditional and contemporary styles. Perfect for diverse fashion campaigns. Indian ethnicity.",
+        region: 'Asian',
+        country: 'India'
+    },
+    {
+        id: 'm11',
+        name: "Zara Al-Hashimi",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=533&fit=crop",
+        description: "Arabian luxury personified with striking features and sophisticated presence. Ideal for high-end fashion and jewelry campaigns. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'UAE'
+    },
+    {
+        id: 'm12',
+        name: "James Parker",
+        gender: 'Male',
+        thumbnail: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&h=533&fit=crop",
+        description: "Menswear and suiting specialist with classic appeal. Perfect for formal wear and professional campaigns. European ethnicity.",
+        region: 'European',
+        country: 'UK'
+    },
+    {
+        id: 'm13',
+        name: "Mariam Al-Kuwari",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=533&fit=crop",
+        description: "Arabian bridal elegance specialist with ethereal beauty. Perfect for wedding collections and luxury campaigns. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'Qatar'
+    },
+    {
+        id: 'm14',
+        name: "Kenji Tanaka",
+        gender: 'Male',
+        thumbnail: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=533&fit=crop",
+        description: "Asian contemporary style icon with minimalist aesthetic. Ideal for modern fashion and tech brand campaigns. Japanese ethnicity.",
+        region: 'Asian',
+        country: 'Japan'
+    },
+    {
+        id: 'm15',
+        name: "Noor Al-Qassimi",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=533&fit=crop",
+        description: "Arabian sports and activewear specialist with athletic build. Perfect for fitness and lifestyle brands. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'UAE'
+    },
+    {
+        id: 'm16',
+        name: "Emma Thompson",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=400&h=533&fit=crop",
+        description: "European chic with timeless elegance. Versatile for classic and contemporary fashion campaigns. European ethnicity.",
+        region: 'European',
+        country: 'France'
+    },
+    {
+        id: 'm17',
+        name: "Hassan Al-Bader",
+        gender: 'Male',
+        thumbnail: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400&h=533&fit=crop",
+        description: "Arabian streetwear trendsetter with urban edge. Perfect for casual wear and youth-focused campaigns. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'Saudi Arabia'
     },
     {
         id: 'm18',
-        name: 'Mike',
+        name: "Aisha Abdullah",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=533&fit=crop",
+        description: "Arabian youth fashion leader with fresh, contemporary style. Ideal for young adult and casual collections. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'UAE'
+    },
+    {
+        id: 'm19',
+        name: "Lucas Silva",
         gender: 'Male',
-        thumbnail: 'https://images.pexels.com/photos/1680172/pexels-photo-1680172.jpeg?auto=compress&cs=tinysrgb&w=200&h=300&dpr=2',
-        description: 'A strong male model from New York, with a confident attitude, and a versatile look that fits both streetwear and high fashion. African-American ethnicity.',
+        thumbnail: "https://images.unsplash.com/photo-1504593811423-6dd665756598?w=400&h=533&fit=crop",
+        description: "Fitness and athleisure specialist with sculpted physique. Perfect for sportswear and wellness brands. Latin American ethnicity.",
+        region: 'Latin',
+        country: 'Brazil'
+    },
+    {
+        id: 'm20',
+        name: "Salma Al-Mansoori",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=533&fit=crop",
+        description: "Arabian business professional with polished elegance. Ideal for corporate wear and professional campaigns. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'UAE'
+    },
+    {
+        id: 'm21',
+        name: "David Kim",
+        gender: 'Male',
+        thumbnail: "https://images.unsplash.com/photo-1463453091185-61582044d556?w=400&h=533&fit=crop",
+        description: "K-Fashion trendsetter with modern Korean style. Perfect for contemporary fashion and streetwear brands. Korean ethnicity.",
+        region: 'Asian',
+        country: 'South Korea'
+    },
+    {
+        id: 'm22',
+        name: "Rania Al-Thani",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1479936343636-73cdc5aae0c3?w=400&h=533&fit=crop",
+        description: "Arabian evening wear specialist with glamorous presence. Perfect for formal gowns and luxury evening collections. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'Qatar'
+    },
+    {
+        id: 'm23',
+        name: "Andre Williams",
+        gender: 'Male',
+        thumbnail: "https://images.unsplash.com/photo-1531384441138-2736e62e0919?w=400&h=533&fit=crop",
+        description: "Plus size fashion champion with confident presence. Perfect for inclusive brands and diverse campaigns. African-American ethnicity.",
         region: 'African',
         country: 'USA'
+    },
+    {
+        id: 'm24',
+        name: "Sara Al-Jaber",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=533&fit=crop",
+        description: "Arabian casual wear specialist with relaxed elegance. Ideal for everyday fashion and lifestyle brands. Middle Eastern ethnicity.",
+        region: 'Middle Eastern',
+        country: 'Jordan'
+    },
+    {
+        id: 'm25',
+        name: "Nina Petrov",
+        gender: 'Female',
+        thumbnail: "https://images.unsplash.com/photo-1509967419530-da38b4704bc6?w=400&h=533&fit=crop",
+        description: "Avant-garde fashion artist with bold, experimental style. Perfect for artistic and high-concept campaigns. Eastern European ethnicity.",
+        region: 'European',
+        country: 'Russia'
     }
 ];
 

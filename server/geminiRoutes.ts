@@ -113,12 +113,22 @@ export function registerGeminiRoutes(server: ViteDevServer) {
             
             if (isTryOn) {
                 // Virtual Try-On Mode - High Fashion Photoshoot
-                prompt = `**PROFESSIONAL FASHION PHOTOSHOOT - VIRTUAL TRY-ON**
+                prompt = `**🚨 CRITICAL WARNING - READ THIS FIRST 🚨**
+
+**THE FACE MUST BE 100% IDENTICAL - ZERO TOLERANCE FOR CHANGES**
+
+This is a virtual try-on photoshoot. The ONLY thing that should change is the CLOTHING and POSE. The FACE must remain EXACTLY the same as the reference image. Any alteration to facial features, bone structure, skin tone, eye color, nose shape, lip shape, jawline, or any other facial characteristic is a COMPLETE FAILURE.
+
+**ABSOLUTE RULE:** If you change even a single pixel of the face structure, you have failed this task. The face must be pixel-perfect identical to the reference image.
+
+---
+
+**PROFESSIONAL FASHION PHOTOSHOOT - VIRTUAL TRY-ON**
 
 **CRITICAL REQUIREMENTS:**
 - Create a REAL, PHOTOREALISTIC professional fashion photoshoot image
 - The model MUST wear the exact clothing/apparel shown in the apparel image(s) provided
-- **PRESERVE THE EXACT FACE AND HAIR:** Keep the model's facial features, bone structure, and hair style IDENTICAL to the original image
+- **🚨 PRESERVE THE EXACT FACE AND HAIR - ABSOLUTE REQUIREMENT 🚨:** Keep the model's facial features, bone structure, face shape, skin tone, eye color, nose, lips, jawline, cheekbones, and hair style IDENTICAL to the original image. The face must be 100% recognizable as the EXACT SAME PERSON.
 - Generate a HIGH-END STUDIO or LOCATION photoshoot background (NOT the original background)
 - Ultra-professional commercial fashion photography quality
 - The model should be in a DIFFERENT POSE than the original image (dynamic, editorial pose)
@@ -152,12 +162,13 @@ ${settings?.background ? `- Background: ${settings.background.name} - ${settings
 ${settings?.sceneProps ? `- Props/Elements: ${settings.sceneProps}` : ''}
 ${settings?.environmentalEffects ? `- Environmental Effects: ${settings.environmentalEffects}` : ''}
 
-**MODEL DIRECTION (IDENTITY LOCKED):**
+**MODEL DIRECTION (IDENTITY LOCKED - ABSOLUTE):**
 ${settings?.expression ? `- Expression: ${settings.expression.name} - ${settings.expression.description}` : '- Expression: Confident, professional'}
-- **PIXEL-LOCKED FACE REGION:** Treat the face and hair region from Image 1 as immutable; do not synthesize a new identity or alter geometry. Maintain identical facial features, bone structure, skin tone, and hair style/length/texture. Only global color grading may affect it uniformly.
-- **MINOR RETOUCH ONLY:** Permitted edits are limited to professional retouching (reduce blemishes, flyaway hairs, harsh shadows) without changing identity or hairstyle.
-${Array.isArray(referenceImages) && referenceImages.length ? '- Additional identity reference photos are included; use them strictly to match face and hair. Do NOT copy background or apparel from them.' : ''}
-${settings?.makeupStyle ? `- Makeup: ${settings.makeupStyle}` : '- Makeup: Professional editorial makeup'}
+- **🚨 PIXEL-LOCKED FACE REGION - ZERO TOLERANCE 🚨:** Treat the face and hair region from Image 1 as ABSOLUTELY IMMUTABLE. Do NOT synthesize a new identity or alter ANY geometry. Maintain IDENTICAL facial features, bone structure, face shape, skin tone, eye color/shape, nose shape/size, lip shape, jawline, cheekbones, and hair style/length/texture/color. The face must be 100% recognizable as the EXACT SAME PERSON. Only global color grading may affect it uniformly, but NO structural changes are permitted.
+- **MINOR RETOUCH ONLY:** Permitted edits are limited to professional retouching (reduce blemishes, flyaway hairs, harsh shadows) WITHOUT changing identity, facial structure, or hairstyle. Do NOT smooth, enhance, or idealize facial features.
+- **FACIAL VERIFICATION:** Before finalizing, verify that someone who knows this person would instantly recognize them. If the face is not identical, you have failed.
+${Array.isArray(referenceImages) && referenceImages.length ? '- Additional identity reference photos are included; use them STRICTLY to match face and hair with 100% accuracy. Do NOT copy background or apparel from them.' : ''}
+${settings?.makeupStyle ? `- Makeup: ${settings.makeupStyle} - Apply makeup WITHOUT altering underlying facial features or bone structure.` : '- Makeup: Professional editorial makeup - Apply WITHOUT altering underlying facial features.'}
 - Pose: Dynamic, editorial, professional fashion pose (NOT the same as original image)
 
 **COLOR & POST-PROCESSING:**
@@ -179,19 +190,24 @@ ${settings?.garmentStyling ? `- Garment Styling: ${settings.garmentStyling}` : '
 **FINAL OUTPUT REQUIREMENTS:**
 ✅ Professional commercial fashion photography quality
 ✅ Model wearing the EXACT apparel from the provided apparel image(s)
-✅ **EXACT SAME FACE AND HAIR** as the original model image
+✅ **🚨 EXACT SAME FACE AND HAIR - 100% IDENTICAL 🚨** as the original model image - The face must be instantly recognizable as the EXACT SAME PERSON
 ✅ High-end photoshoot background (studio/location/set)
 ✅ Different, dynamic editorial pose
 ✅ Perfect lighting, sharp focus, professional color grading
 ✅ Looks like it was shot by a professional fashion photographer
 ✅ Ready for commercial use (magazine, lookbook, ecommerce)
+✅ **FACIAL VERIFICATION:** Before finalizing, verify that the face is 100% identical to the reference. If not, regenerate with stricter adherence.
 
-**WHAT NOT TO CHANGE:**
-❌ Do NOT change the model's facial features, bone structure, face shape, or proportions
-❌ Do NOT change the model's hair style, color, length, or texture (no haircuts or recolors)
-❌ Do NOT change the model's skin tone, complexion, or facial landmarks
-❌ Do NOT change the model's eye color/shape, nose, mouth, jawline, ears, or eyebrows
-❌ Only change the clothing/apparel and pose/background
+**🚨 WHAT NOT TO CHANGE - ABSOLUTE PROHIBITIONS 🚨:**
+❌ DO NOT change the model's facial features, bone structure, face shape, or proportions - THIS IS A COMPLETE FAILURE
+❌ DO NOT change the model's hair style, color, length, or texture (no haircuts or recolors) - PRESERVE EXACTLY
+❌ DO NOT change the model's skin tone, complexion, or facial landmarks - MUST BE IDENTICAL
+❌ DO NOT change the model's eye color/shape, nose, mouth, jawline, ears, or eyebrows - PIXEL-PERFECT MATCH REQUIRED
+❌ DO NOT smooth, enhance, or idealize facial features - PRESERVE ALL NATURAL DETAILS
+❌ DO NOT add or remove facial hair - PRESERVE EXACTLY AS SHOWN
+❌ DO NOT change the hairline - IT'S PART OF FACIAL STRUCTURE
+❌ DO NOT adjust facial symmetry - PRESERVE NATURAL ASYMMETRY IF PRESENT
+❌ ONLY change the clothing/apparel and pose/background - THE FACE IS ABSOLUTE AND UNTOUCHABLE
 
 ${settings?.customPrompt ? `\n**ADDITIONAL CREATIVE DIRECTION:**\n${settings.customPrompt}` : ''}
 

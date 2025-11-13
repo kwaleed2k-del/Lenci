@@ -6,6 +6,7 @@ import { useStudio } from './context/StudioContext';
 import { InputPanel } from './components/shared/InputPanel';
 import { SettingsPanel } from './components/settings/SettingsPanel';
 import { StudioView } from './components/studio/StudioView';
+ 
 import { StudioModeSwitcher } from './components/shared/StudioModeSwitcher';
 import { GenerateButton } from './components/shared/GenerateButton';
 import { InteractiveGuide } from './components/shared/InteractiveGuide';
@@ -14,6 +15,7 @@ import { PricingModal } from './components/shared/PricingModal';
 import { LandingPage } from './components/landing/LandingPage';
 import { DatabaseTest } from './components/shared/DatabaseTest';
 import { ImageProcessingNotification } from './components/shared/ImageProcessingNotification';
+import { StudioModeSelector } from './components/studio/StudioModeSelector';
 import { Wand2, User, PanelLeft, PanelRight, Lightbulb, DollarSign, LogOut, HelpCircle, ChevronDown, Database } from 'lucide-react';
 import { PLAN_DETAILS } from './services/permissionsService';
 
@@ -95,9 +97,16 @@ const AppHeader: React.FC<{
     toggleLeftPanel: () => void;
     toggleRightPanel: () => void;
     onShowDatabaseTest: () => void;
-}> = ({ toggleLeftPanel, toggleRightPanel, onShowDatabaseTest }) => {
-    const { setBestPracticesModalOpen, setGuideActive } = useStudio();
+    onBackToModeSelector: () => void;
+}> = ({ toggleLeftPanel, toggleRightPanel, onShowDatabaseTest, onBackToModeSelector }) => {
+    const { setBestPracticesModalOpen, setGuideActive, studioMode } = useStudio();
     const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+
+    const modeNames = {
+        apparel: 'Fashion Model Studio',
+        product: 'Product Photography Studio',
+        video: 'Video Generation Studio'
+    };
 
     return (
         <>
@@ -113,7 +122,15 @@ const AppHeader: React.FC<{
                 </div>
 
                 <div className="hidden sm:flex justify-center items-center">
-                    <StudioModeSwitcher />
+                    <div className="flex items-center gap-3 px-4 py-2 bg-zinc-900/50 border border-zinc-700/50 rounded-full">
+                        <span className="text-sm font-medium text-zinc-300">{modeNames[studioMode]}</span>
+                        <button
+                            onClick={onBackToModeSelector}
+                            className="text-xs px-3 py-1 bg-zinc-800 hover:bg-zinc-700 rounded-full transition-colors text-zinc-400 hover:text-zinc-200"
+                        >
+                            Change
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-1 sm:gap-2">
@@ -138,10 +155,11 @@ const AppHeader: React.FC<{
 
 
 const AppContent: React.FC = () => {
-    const { isGuideActive, isBestPracticesModalOpen, setBestPracticesModalOpen, showProcessingNotification, processingMessage, processingProgress, setProcessingNotification } = useStudio();
+    const { isGuideActive, isBestPracticesModalOpen, setBestPracticesModalOpen, showProcessingNotification, processingMessage, processingProgress, setProcessingNotification, studioMode, setStudioMode } = useStudio();
     const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
     const [showStudio, setShowStudio] = useState(false);
+    const [showModeSelector, setShowModeSelector] = useState(false);
     const [showDatabaseTest, setShowDatabaseTest] = useState(false);
 
     useEffect(() => {
@@ -208,7 +226,10 @@ const AppContent: React.FC = () => {
                 <LandingPage />
                 {/* Add a floating button to access studio */}
                 <button
-                    onClick={() => setShowStudio(true)}
+                    onClick={() => {
+                        setShowStudio(true);
+                        setShowModeSelector(true);
+                    }}
                     className="fixed bottom-6 right-6 z-50 bg-violet-600 hover:bg-violet-500 text-white p-4 rounded-full shadow-lg transition-all duration-300 hover:scale-105"
                     title="Open Studio"
                 >
@@ -218,12 +239,21 @@ const AppContent: React.FC = () => {
         );
     }
 
+    // Show mode selector when entering studio for the first time
+    if (showModeSelector) {
+        return <StudioModeSelector onSelectMode={(mode) => {
+            setStudioMode(mode);
+            setShowModeSelector(false);
+        }} />;
+    }
+
     return (
         <div className="bg-zinc-950 text-zinc-300 font-sans antialiased min-h-screen flex flex-col">
             <AppHeader
                 toggleLeftPanel={() => setIsLeftPanelOpen(p => !p)}
                 toggleRightPanel={() => setIsRightPanelOpen(p => !p)}
                 onShowDatabaseTest={() => setShowDatabaseTest(true)}
+                onBackToModeSelector={() => setShowModeSelector(true)}
             />
             <main className="flex-grow flex-1 flex min-h-0 max-h-[calc(100vh-61px)]">
                 <aside className={`flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out ${isLeftPanelOpen ? 'w-[380px]' : 'w-0'} hidden lg:block`}>
@@ -236,8 +266,8 @@ const AppContent: React.FC = () => {
                     <StudioView />
                 </section>
                 
-                <aside className={`flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out ${isRightPanelOpen ? 'w-[420px]' : 'w-0'} hidden xl:block`}>
-                     <div className="w-[420px] flex-1 min-h-0 overflow-y-auto">
+                <aside className={`flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out ${isRightPanelOpen ? 'w-[560px]' : 'w-0'} hidden xl:block`}>
+                    <div className="w-[560px] flex-1 min-h-0 overflow-y-auto">
                         <SettingsPanel onClose={() => setIsRightPanelOpen(false)} />
                     </div>
                 </aside>
@@ -246,7 +276,7 @@ const AppContent: React.FC = () => {
                  <div className={`fixed top-[61px] bottom-0 left-0 w-[380px] max-w-[calc(100%-40px)] z-30 transition-transform duration-300 ease-in-out lg:hidden overflow-y-auto ${isLeftPanelOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <InputPanel onClose={() => setIsLeftPanelOpen(false)} />
                  </div>
-                 <div className={`fixed top-[61px] bottom-0 right-0 w-[420px] max-w-[calc(100%-40px)] z-30 transition-transform duration-300 ease-in-out xl:hidden overflow-y-auto ${isRightPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                 <div className={`fixed top-[61px] bottom-0 right-0 w-[560px] max-w-[calc(100%-40px)] z-30 transition-transform duration-300 ease-in-out xl:hidden overflow-y-auto ${isRightPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                     <SettingsPanel onClose={() => setIsRightPanelOpen(false)} />
                  </div>
 
@@ -254,6 +284,7 @@ const AppContent: React.FC = () => {
                     <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => { setIsLeftPanelOpen(false); setIsRightPanelOpen(false); }}></div>
                  )}
             </main>
+            
             {isGuideActive && <InteractiveGuide />}
             <BestPracticesModal isOpen={isBestPracticesModalOpen} onClose={() => setBestPracticesModalOpen(false)} />
             

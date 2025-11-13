@@ -18,6 +18,7 @@ import { LooksPanel } from './LooksPanel';
 import { FullAssetPackSwitcher } from './FullAssetPackSwitcher';
 import { ProductEcommercePackSelector } from '../product/ProductEcommercePackSelector';
 import { ReimagineSettingsPanel } from '../reimagine/ReimagineSettingsPanel';
+import { CreativeVisualSettings } from './CreativeVisualSettings';
 
 interface SettingsPanelProps {
     onClose: () => void;
@@ -96,6 +97,76 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
         return <ReimagineSettingsPanel onClose={onClose} />;
     }
 
+    // Use new visual settings panel for apparel mode
+    if (studioMode === 'apparel') {
+        return (
+            <div className="flex flex-col h-full bg-zinc-950">
+                <div className="flex-shrink-0 p-4 border-b border-zinc-800 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
+                        <Wand2 size={20} className="text-violet-400" />
+                        Photoshoot Settings
+                    </h2>
+                    <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-lg transition-colors xl:hidden">
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    {/* PACK SELECTORS */}
+                    <div className="p-4 space-y-4 border-b border-zinc-800">
+                        <EcommercePackSelector />
+                        <SocialMediaPackSwitcher />
+                        <FullAssetPackSwitcher />
+                    </div>
+
+                    {/* IMAGE COUNT & ASPECT RATIO */}
+                    <div className="p-4 space-y-4 border-b border-zinc-800">
+                        <div className="relative">
+                            <fieldset disabled={isSocialMediaPack || isCompletePack}>
+                                <AspectRatioSelector />
+                            </fieldset>
+                            {(isSocialMediaPack || isCompletePack) && (
+                                <div className="absolute inset-0 bg-zinc-900/70 backdrop-blur-[2px] rounded-lg flex items-center justify-center text-center p-4">
+                                    <p className="text-sm text-zinc-300 font-medium">Overridden by the selected Asset Pack.</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="relative">
+                            <fieldset disabled={isApparelPackActive}>
+                                <OptionSelector
+                                    label="Number of Images"
+                                    options={IMAGE_COUNT_OPTIONS}
+                                    selectedOption={selectedImageCount}
+                                    onSelect={(option) => setNumberOfImages(parseInt(option.name, 10))}
+                                    gridCols="grid-cols-3"
+                                />
+                            </fieldset>
+                            {isApparelPackActive && (
+                                <div className="absolute inset-0 bg-zinc-900/70 backdrop-blur-[2px] rounded-lg flex items-center justify-center text-center p-4">
+                                    <p className="text-sm text-zinc-300 font-medium">Determined by selected pack.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* VISUAL SETTINGS */}
+                    <CreativeVisualSettings />
+
+                    {/* LOOKS PANEL */}
+                    <div className="p-4 border-t border-zinc-800">
+                        <LooksPanel />
+                    </div>
+
+                    {/* POST PRODUCTION */}
+                    {hasGeneratedImages && canUsePostProduction && (
+                        <div className="p-4 border-t border-zinc-800">
+                            <PostProductionPanel />
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full">
             <div className="flex-shrink-0 p-4 border-b border-white/10 flex justify-between items-center">
@@ -136,13 +207,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                             )}
                         </div>
                        
-                        {studioMode === 'apparel' && (
-                            <div className="space-y-4">
-                                <EcommercePackSelector />
-                                <SocialMediaPackSwitcher />
-                                <FullAssetPackSwitcher />
-                            </div>
-                        )}
                         {studioMode === 'product' && (
                             <div className="space-y-4">
                                 <ProductEcommercePackSelector />
@@ -150,14 +214,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                         )}
                     </div>
                 </SettingSection>
-
-                {studioMode === 'apparel' && (
-                    <SettingSection id="settings-panel-looks" title="Looks" icon={<Save size={18} />}>
-                        <div className="pt-4">
-                            <LooksPanel />
-                        </div>
-                    </SettingSection>
-                )}
                 
                 <SettingSection id="settings-panel-creative" title="Creative Controls" icon={<SlidersHorizontal size={18} />} defaultOpen={studioMode === 'product'}>
                     {renderCreativeControls()}

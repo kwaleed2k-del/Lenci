@@ -2,7 +2,7 @@ import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import type { Plugin } from 'vite';
-import { registerGeminiRoutes } from './server/geminiRoutes';
+import { registerGeminiRoutes } from './server/geminiRoutes.ts';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');

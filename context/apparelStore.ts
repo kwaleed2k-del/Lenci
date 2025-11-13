@@ -14,6 +14,18 @@ export interface ApparelState {
     bodyType?: string; // e.g., skinny, athletic, average, plus-size
     heightCm?: number;
     weightKg?: number;
+    // AI-detected extended attributes
+    estimatedAge?: string;
+    estimatedHeightCm?: number;
+    estimatedWeightKg?: number;
+    facialStructure?: string;
+    faceShape?: string;
+    eyeColor?: string;
+    eyebrowShape?: string;
+    noseShape?: string;
+    lipShape?: string;
+    jawlineType?: string;
+    cheekboneStructure?: string;
   };
   selectedModels: AIModel[];
   myModels: AIModel[];

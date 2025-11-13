@@ -1,7 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { User, X } from 'lucide-react';
+import { User, X, Sparkles } from 'lucide-react';
 import { useStudio } from '../../context/StudioContext';
+import { modelAnalysisService } from '../../services/modelAnalysisService';
 
 export const ModelUploader: React.FC = () => {
     const { 
@@ -9,19 +10,64 @@ export const ModelUploader: React.FC = () => {
         addModelReference, removeModelReference, uploadedModelRefs = [],
         modelAttributes = {}, setModelAttributes
     } = useStudio();
+    
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+    const analyzeModel = useCallback(async (imageBase64: string) => {
+        setIsAnalyzing(true);
+        try {
+            const analysis = await modelAnalysisService.analyzeModelPhysicalAttributes(imageBase64);
+            
+            // Only update if we got meaningful results (not fallback)
+            if (analysis.facialStructure !== 'balanced proportions') {
+                // Update model attributes with AI analysis
+                setModelAttributes({
+                    age: analysis.estimatedAge,
+                    hairType: analysis.hairType,
+                    hairColor: analysis.hairColor,
+                    skinTone: analysis.skinTone,
+                    bodyType: analysis.bodyType,
+                    heightCm: analysis.estimatedHeightCm,
+                    weightKg: analysis.estimatedWeightKg,
+                    // Additional facial structure details
+                    estimatedAge: analysis.estimatedAge,
+                    estimatedHeightCm: analysis.estimatedHeightCm,
+                    estimatedWeightKg: analysis.estimatedWeightKg,
+                    facialStructure: analysis.facialStructure,
+                    faceShape: analysis.faceShape,
+                    eyeColor: analysis.eyeColor,
+                    eyebrowShape: analysis.eyebrowShape,
+                    noseShape: analysis.noseShape,
+                    lipShape: analysis.lipShape,
+                    jawlineType: analysis.jawlineType,
+                    cheekboneStructure: analysis.cheekboneStructure,
+                });
+                
+                console.log('✅ Model auto-analyzed successfully:', analysis);
+            }
+        } catch (error) {
+            console.error('❌ Failed to auto-analyze model:', error);
+            // Silently fail - user can still manually enter attributes
+        } finally {
+            setIsAnalyzing(false);
+        }
+    }, [setModelAttributes]);
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
             const file = acceptedFiles[0];
             const reader = new FileReader();
-            reader.onload = (event: ProgressEvent<FileReader>) => {
+            reader.onload = async (event: ProgressEvent<FileReader>) => {
                 if (event.target?.result) {
-                    setUploadedModelImage(event.target.result as string);
+                    const imageBase64 = event.target.result as string;
+                    setUploadedModelImage(imageBase64);
+                    // Auto-analyze the model image
+                    await analyzeModel(imageBase64);
                 }
             };
             reader.readAsDataURL(file);
         }
-    }, [setUploadedModelImage]);
+    }, [setUploadedModelImage, analyzeModel]);
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
@@ -47,7 +93,15 @@ export const ModelUploader: React.FC = () => {
     if (uploadedModelImage) {
         return (
             <div className="w-full h-full animate-fade-in flex flex-col">
-                <p className="text-sm font-medium text-zinc-300 mb-2 flex-shrink-0">Your Uploaded Model</p>
+                <div className="flex items-center justify-between mb-2 flex-shrink-0">
+                    <p className="text-sm font-medium text-zinc-300">Your Uploaded Model</p>
+                    {isAnalyzing && (
+                        <div className="flex items-center gap-2 text-xs text-violet-400">
+                            <Sparkles size={14} className="animate-pulse" />
+                            <span>AI analyzing...</span>
+                        </div>
+                    )}
+                </div>
                  <div className="relative group flex-grow rounded-lg overflow-hidden border-2 border-violet-500/50 shadow-lg shadow-violet-900/30 bg-zinc-900 min-h-0">
                     <img src={uploadedModelImage} alt="Model preview" className="absolute inset-0 w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -86,16 +140,85 @@ export const ModelUploader: React.FC = () => {
                  </div>
 
                  {/* Structured Identity Attributes */}
-                 <div className="mt-4 grid grid-cols-2 gap-3">
-                    <input className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200" placeholder="Age (e.g., 25-30)" value={modelAttributes.age || ''} onChange={e => setModelAttributes({ age: e.target.value })} />
-                    <input className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200" placeholder="Hair Type (straight/wavy/curly)" value={modelAttributes.hairType || ''} onChange={e => setModelAttributes({ hairType: e.target.value })} />
-                    <input className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200" placeholder="Hair Color" value={modelAttributes.hairColor || ''} onChange={e => setModelAttributes({ hairColor: e.target.value })} />
-                    <input className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200" placeholder="Skin Tone" value={modelAttributes.skinTone || ''} onChange={e => setModelAttributes({ skinTone: e.target.value })} />
-                    <input className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200" placeholder="Body Type (skinny/average/athletic/plus-size)" value={modelAttributes.bodyType || ''} onChange={e => setModelAttributes({ bodyType: e.target.value })} />
-                    <div className="flex gap-3">
-                        <input className="flex-1 bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200" placeholder="Height (cm)" value={modelAttributes.heightCm ?? ''} onChange={e => setModelAttributes({ heightCm: Number(e.target.value) || undefined })} />
-                        <input className="flex-1 bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200" placeholder="Weight (kg)" value={modelAttributes.weightKg ?? ''} onChange={e => setModelAttributes({ weightKg: Number(e.target.value) || undefined })} />
+                 <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-zinc-300">Model Identity Attributes</p>
+                        {modelAttributes.estimatedAge && (
+                            <span className="text-xs text-green-400 flex items-center gap-1">
+                                <Sparkles size={12} />
+                                AI detected
+                            </span>
+                        )}
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <input 
+                            className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500" 
+                            placeholder="Age (e.g., 25-30)" 
+                            value={modelAttributes.age || modelAttributes.estimatedAge || ''} 
+                            onChange={e => setModelAttributes({ age: e.target.value })} 
+                        />
+                        <input 
+                            className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500" 
+                            placeholder="Hair Type" 
+                            value={modelAttributes.hairType || ''} 
+                            onChange={e => setModelAttributes({ hairType: e.target.value })} 
+                        />
+                        <input 
+                            className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500" 
+                            placeholder="Hair Color" 
+                            value={modelAttributes.hairColor || ''} 
+                            onChange={e => setModelAttributes({ hairColor: e.target.value })} 
+                        />
+                        <input 
+                            className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500" 
+                            placeholder="Skin Tone" 
+                            value={modelAttributes.skinTone || ''} 
+                            onChange={e => setModelAttributes({ skinTone: e.target.value })} 
+                        />
+                        <input 
+                            className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500" 
+                            placeholder="Body Type" 
+                            value={modelAttributes.bodyType || ''} 
+                            onChange={e => setModelAttributes({ bodyType: e.target.value })} 
+                        />
+                        <div className="flex gap-2">
+                            <input 
+                                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500" 
+                                placeholder="Height (cm)" 
+                                value={modelAttributes.heightCm ?? modelAttributes.estimatedHeightCm ?? ''} 
+                                onChange={e => setModelAttributes({ heightCm: Number(e.target.value) || undefined })} 
+                            />
+                            <input 
+                                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500" 
+                                placeholder="Weight (kg)" 
+                                value={modelAttributes.weightKg ?? modelAttributes.estimatedWeightKg ?? ''} 
+                                onChange={e => setModelAttributes({ weightKg: Number(e.target.value) || undefined })} 
+                            />
+                        </div>
+                    </div>
+                    {modelAttributes.facialStructure && (
+                        <div className="mt-3 p-3 bg-zinc-900/50 border border-zinc-700/50 rounded-md">
+                            <p className="text-xs text-zinc-400 mb-1">AI Facial Analysis:</p>
+                            <p className="text-xs text-zinc-300 leading-relaxed">{modelAttributes.facialStructure}</p>
+                            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                                {modelAttributes.faceShape && (
+                                    <span className="text-zinc-400">
+                                        <span className="text-violet-400">Face:</span> {modelAttributes.faceShape}
+                                    </span>
+                                )}
+                                {modelAttributes.eyeColor && (
+                                    <span className="text-zinc-400">
+                                        <span className="text-violet-400">Eyes:</span> {modelAttributes.eyeColor}
+                                    </span>
+                                )}
+                                {modelAttributes.jawlineType && (
+                                    <span className="text-zinc-400">
+                                        <span className="text-violet-400">Jaw:</span> {modelAttributes.jawlineType}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    )}
                  </div>
             </div>
         )
