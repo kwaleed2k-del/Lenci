@@ -6,8 +6,8 @@
  * Optional dev utility - keep simple, no UI dependency yet.
  */
 import { NextResponse } from 'next/server';
-import { getSessionUser } from '@/src/server/auth';
-import { recordUsageEvent, type UsageEventInput } from '@/src/server/services/usageService';
+import { getSessionUser } from '@/server/auth';
+import { recordUsageEvent, type UsageEventInput } from '@/server/services/usageService';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return !!value && typeof value === 'object' && !Array.isArray(value);

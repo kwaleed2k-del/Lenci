@@ -1,7 +1,19 @@
 [functions.cron-monthly-grant]
 verify_jwt = false
 
-[cron.jobs.job1]
+[functions.auth-welcome]
+verify_jwt = false
+
+[functions.cron-welcome-backfill]
+verify_jwt = false
+
+[[cron.jobs]]
+name = "monthly-grant"
 schedule = "0 0 0 1 * *"
-endpoint = "cron-monthly-grant"
+endpoint = "/functions/v1/cron-monthly-grant"
+
+[[cron.jobs]]
+name = "welcome-backfill"
+schedule = "0 * * * *"
+endpoint = "/functions/v1/cron-welcome-backfill"
 

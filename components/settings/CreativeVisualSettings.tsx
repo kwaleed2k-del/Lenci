@@ -7,26 +7,36 @@ export const CreativeVisualSettings: React.FC = () => {
     const { apparelControls, updateApparelControl, scene, updateScene } = useStudio();
     const [activeCategory, setActiveCategory] = useState<'pose' | 'background' | 'lighting' | 'expression' | 'color'>('pose');
 
-    // Sample images for poses matching their descriptions
     const poseImages: Record<string, string> = {
-        // Standard e‑commerce views
-        'st1': 'https://images.unsplash.com/photo-1586297135537-94bc9ba060aa?w=300&h=400&fit=crop', // Full Body Front
-        'st2': 'https://images.unsplash.com/photo-1520975916090-3105956dac38?w=300&h=400&fit=crop', // Back View (turned away)
-        'st3': 'https://images.unsplash.com/photo-1520975593861-6f0d7d2f04d0?w=300&h=400&fit=crop', // 3/4 View
-        'st16': 'https://images.unsplash.com/photo-1536766820879-059fec98ec1e?w=300&h=400&fit=crop', // Profile View (side)
-        'st4': 'https://images.unsplash.com/photo-1542326237-94b1e21f2b4b?w=300&h=400&fit=crop', // Waist-Up
+        st1: '/assets/poses/st1.jpg',
+        st2: '/assets/poses/st2.jpg',
+        st3: '/assets/poses/st3.jpg',
+        st4: '/assets/poses/st4.jpg',
+        st5: '/assets/poses/st5.jpg',
+        st6: '/assets/poses/st6.jpg',
+        st7: '/assets/poses/st7.jpg',
+        st8: '/assets/poses/st8.jpg',
+        st9: '/assets/poses/st9.jpg',
+        st10: '/assets/poses/st10.jpg',
+        st11: '/assets/poses/st11.jpg',
+        st12: '/assets/poses/st12.jpg',
+        st13: '/assets/poses/st13.jpg',
+        st14: '/assets/poses/st14.jpg',
+        st15: '/assets/poses/st15.jpg',
+        st16: '/assets/poses/st16.jpg',
+        st17: '/assets/poses/st17.jpg',
+        st18: '/assets/poses/st18.jpg',
+        st19: '/assets/poses/st19.jpg',
+        st20: '/assets/poses/st20.jpg',
+        st21: '/assets/poses/st21.jpg',
+        st22: '/assets/poses/st22.jpg',
+    };
 
-        // Creative & lifestyle
-        'st18': 'https://images.unsplash.com/photo-1534531688091-a458257992d5?w=300&h=400&fit=crop', // Hand on Hip
-        'st5':  'https://images.unsplash.com/photo-1520975411273-82f3b8c2c1c1?w=300&h=400&fit=crop', // Walking Motion
-        'st6':  'https://images.unsplash.com/photo-1519741497674-611481863552?w=300&h=400&fit=crop', // Elegant Lean
-        'st7':  'https://images.unsplash.com/photo-1503342217505-b0a15cf70489?w=300&h=400&fit=crop', // Sitting Pose
-        'st8':  'https://images.unsplash.com/photo-1504198458649-3128b932f49b?w=300&h=400&fit=crop', // Candid Look (looking away)
-        'st9':  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&h=400&fit=crop', // Hero Pose (low angle power)
-        'st10': 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=300&h=400&fit=crop', // Action Pose (dynamic)
-        'st12': 'https://images.unsplash.com/photo-1519340241574-2cec6aef0c01?w=300&h=400&fit=crop', // Looking Over Shoulder
-        'st14': 'https://images.unsplash.com/photo-1519744792095-2f2205e87b6f?w=300&h=400&fit=crop', // Leaning Forward
-        'st15': 'https://images.unsplash.com/photo-1516822003754-cca485356ecb?w=300&h=400&fit=crop', // Hands in Pockets
+    const handlePoseImageError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+        const target = event.currentTarget;
+        if (target.dataset.fallbackApplied) return;
+        target.dataset.fallbackApplied = 'true';
+        target.src = '/assets/poses/st1.jpg';
     };
 
     const categories = [
@@ -73,8 +83,8 @@ export const CreativeVisualSettings: React.FC = () => {
 
                 {/* Pose & Angle */}
                 {activeCategory === 'pose' && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-fade-in">
-                        {SHOT_TYPES_LIBRARY.slice(0, 15).map((shot) => (
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 animate-fade-in">
+                        {SHOT_TYPES_LIBRARY.map((shot) => (
                             <button
                                 key={shot.id}
                                 onClick={() => updateApparelControl('shotType', shot)}
@@ -83,10 +93,13 @@ export const CreativeVisualSettings: React.FC = () => {
                                         ? 'ring-4 ring-purple-500 scale-95 shadow-2xl shadow-purple-500/50'
                                         : 'hover:scale-105 hover:shadow-xl'
                                 }`}
-                            >
+                                >
                                 <img
-                                    src={poseImages[shot.id] || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&h=400&fit=crop'}
+                                    src={poseImages[shot.id] || '/assets/poses/st1.jpg'}
                                     alt={shot.name}
+                                    loading="lazy"
+                                    decoding="async"
+                                    onError={handlePoseImageError}
                                     className="w-full h-full object-cover"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>

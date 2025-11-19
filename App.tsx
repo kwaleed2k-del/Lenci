@@ -12,13 +12,17 @@ import { GenerateButton } from './components/shared/GenerateButton';
 import { InteractiveGuide } from './components/shared/InteractiveGuide';
 import { BestPracticesModal } from './components/shared/BestPracticesModal';
 import { PricingModal } from './components/shared/PricingModal';
-import { LandingPage } from './components/landing/LandingPage';
+import LandingPage from './components/landing/LandingPage';
 import { DatabaseTest } from './components/shared/DatabaseTest';
 import { ImageProcessingNotification } from './components/shared/ImageProcessingNotification';
 import { StudioModeSelector } from './components/studio/StudioModeSelector';
 import { BillingOverview } from './src/pages/BillingOverview';
 import Dashboard from './src/pages/Dashboard';
 import Account from './src/pages/Account';
+import AdminOverviewPage from './src/pages/AdminOverview';
+import AdminEmailLogPage from './src/pages/admin/EmailLog';
+import AdminEmailJobsPage from './src/pages/admin/EmailJobs';
+import AdminSuppressionsPage from './src/pages/admin/Suppressions';
 import { Wand2, User, PanelLeft, PanelRight, Lightbulb, DollarSign, LogOut, HelpCircle, ChevronDown, Database } from 'lucide-react';
 import { PLAN_DETAILS } from './services/permissionsService';
 import { supabase } from './services/supabaseClient';
@@ -278,6 +282,38 @@ const AppContent: React.FC = () => {
         return (
             <div className="min-h-screen">
                 <BillingOverview />
+            </div>
+        );
+    }
+
+    if (window.location.pathname === '/admin') {
+        return (
+            <div className="min-h-screen">
+                <AdminOverviewPage />
+            </div>
+        );
+    }
+
+    if (window.location.pathname === '/admin/email-log') {
+        return (
+            <div className="min-h-screen">
+                <AdminEmailLogPage />
+            </div>
+        );
+    }
+
+    if (window.location.pathname === '/admin/email-jobs') {
+        return (
+            <div className="min-h-screen">
+                <AdminEmailJobsPage />
+            </div>
+        );
+    }
+
+    if (window.location.pathname === '/admin/suppressions') {
+        return (
+            <div className="min-h-screen">
+                <AdminSuppressionsPage />
             </div>
         );
     }

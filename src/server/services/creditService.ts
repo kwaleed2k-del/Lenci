@@ -108,4 +108,45 @@ export async function consume(
 	return Number.isFinite(numeric) ? numeric : 0;
 }
 
+export type CreditTransactionResult = {
+	transactionId: string;
+	balanceAfter: number;
+};
+
+type AddCreditsOptions = {
+	generationId?: string | null;
+};
+
+export async function addCredits(
+	userId: string,
+	amount: number,
+	description: string,
+	txType: 'purchase' | 'grant' | 'refund' | 'monthly_reset',
+	options?: AddCreditsOptions
+): Promise<CreditTransactionResult> {
+	assertNonEmptyString(userId, 'userId');
+	assertPositiveNumber(amount, 'amount');
+	assertNonEmptyString(description, 'description');
+
+	const { data, error } = await admin.rpc('fn_add_credits', {
+		p_user_id: userId,
+		p_amount: amount,
+		p_description: description,
+		p_tx_type: txType,
+		p_generation_id: options?.generationId ?? null
+	});
+
+	if (error) translateAndThrow(error);
+
+	if (!Array.isArray(data) || data.length === 0) {
+		throw new Error('fn_add_credits returned no data');
+	}
+
+	const result = data[0] as { transaction_id: string; balance_after: number };
+	return {
+		transactionId: result.transaction_id,
+		balanceAfter: Number(result.balance_after)
+	};
+}
+
 

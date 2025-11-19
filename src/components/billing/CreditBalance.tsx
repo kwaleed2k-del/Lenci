@@ -156,12 +156,20 @@ export const CreditBalance: React.FC<CreditBalanceProps> = ({ userId: propUserId
         </div>
 
         {/* Purchase Credits CTA */}
-        <a
-          href="/billing/credits"
-          className="block w-full text-center px-3 py-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium rounded transition-colors"
-        >
-          Purchase Credits
-        </a>
+        <div className="flex flex-col gap-2">
+          <a
+            href="/billing/credits"
+            className="block w-full text-center px-3 py-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium rounded transition-colors"
+          >
+            Buy Credits
+          </a>
+          <a
+            href="/billing/invoices"
+            className="block w-full text-center px-3 py-2 border border-white/20 text-white text-xs font-medium rounded transition-colors hover:bg-white/10"
+          >
+            View Invoices
+          </a>
+        </div>
       </div>
 
       {/* History Modal */}

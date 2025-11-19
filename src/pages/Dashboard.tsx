@@ -389,6 +389,13 @@ export default function Dashboard() {
               />
             </div>
 
+            <WelcomeHero
+              username={username}
+              remainingCredits={remainingCredits}
+              onStartApparel={() => (window.location.href = '/studio/apparel')}
+              onStartProduct={() => (window.location.href = '/studio/product')}
+            />
+
             <CalloutRail cards={calloutCards} />
             <InspirationStrip featured={featuredInspiration} fallbackType="model" />
 
@@ -397,127 +404,9 @@ export default function Dashboard() {
               {`Welcome back${username ? `, ${username}` : ''} 👋`}
             </h1>
 
-            {/* Quick glance row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              {/* Profile Card */}
-              <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 backdrop-blur">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="relative">
-                    <img
-                      src={avatar || 'https://api.dicebear.com/7.x/initials/svg?seed=User'}
-                      alt="Avatar"
-                      className="w-10 h-10 rounded-full border border-white/10"
-                    />
-                  </div>
-                  <div>
-                    <div className="text-white text-sm font-medium">{username || 'Your profile'}</div>
-                    <div className="text-xs text-zinc-400">{user?.email ?? 'you@lenci.app'}</div>
-                  </div>
-                </div>
-                <a
-                  href="/account"
-                  className="inline-flex items-center gap-2 text-xs text-zinc-300 hover:text-white"
-                  aria-label="Edit Profile"
-                >
-                  <User size={14} />
-                  Edit Profile
-                </a>
-              </div>
+            {/* Quick glance row removed per request */}
 
-              {/* Credits Card */}
-              <div
-                className={`rounded-2xl border border-white/10 bg-zinc-900/60 p-5 backdrop-blur relative ${isLowCredits ? 'ring-1 ring-amber-400/40' : ''}`}
-                aria-live="polite"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-zinc-400 mb-1">Your Credits</div>
-                    <div className="text-3xl font-extrabold tracking-tight text-white">
-                      {remainingCredits.toLocaleString()}
-                    </div>
-                    {isLowCredits && (
-                      <div className="mt-1 inline-flex items-center gap-2 text-amber-300 text-xs">
-                        You’re running low — top up now
-                      </div>
-                    )}
-                  </div>
-                  {(dbPlan || planInfo) && (
-                    <span className="text-[10px] px-2 py-1 rounded-full border border-white/10 bg-zinc-800/80 text-zinc-300">
-                      {dbPlan ?? planInfo?.name}
-                    </span>
-                  )}
-                </div>
-                <a
-                  href="/billing"
-                  className="mt-4 inline-flex items-center gap-2 text-xs text-zinc-300 hover:text-white"
-                  aria-label="Get credits"
-                >
-                  <BadgeDollarSign size={14} />
-                  Get credits
-                </a>
-              </div>
-
-              {/* Quick Start Studios Card */}
-              <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 backdrop-blur">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <a
-                    href="/studio/apparel"
-                    className="group flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-zinc-900 p-4 hover:bg-zinc-900/70 transition-colors"
-                    aria-label="Start Apparel Studio"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded bg-fuchsia-600/20 text-fuchsia-300">
-                        <Shirt size={16} />
-                      </div>
-                      <div className="text-sm text-white">Start Apparel Studio</div>
-                    </div>
-                  </a>
-                  <a
-                    href="/studio/product"
-                    className="group flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-zinc-900 p-4 hover:bg-zinc-900/70 transition-colors"
-                    aria-label="Start Product Studio"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded bg-cyan-600/20 text-cyan-300">
-                        <Package size={16} />
-                      </div>
-                      <div className="text-sm text-white">Start Product Studio</div>
-                    </div>
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Create something row */}
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="mb-8"
-            >
-              <h2 className="text-sm font-medium text-zinc-400 mb-3">Create something</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {[
-                  { label: 'Create product shots', href: '/studio/product' },
-                  { label: 'Create product designs', href: '/studio/apparel' },
-                ].map((item, idx) => (
-                  <a
-                    key={idx}
-                    className="group flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-zinc-900/60 hover:bg-zinc-900 px-3 py-3 transition-colors"
-                    href={item.href}
-                    aria-label={item.label}
-                  >
-                    <span className="text-sm text-zinc-200">{item.label}</span>
-                    <div className="text-zinc-500 group-hover:text-zinc-300"><Wand2 size={16} /></div>
-                  </a>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Guides */}
-            <Section title="Guides">
-              <GuideCards onStartTour={() => setShowTour(true)} />
-            </Section>
+            {/* Guides removed per request */}
 
             {/* Hero quick actions */}
             <motion.div
@@ -804,6 +693,149 @@ function CalloutRail({ cards }: { cards: CalloutCard[] }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function WelcomeHero({
+  username,
+  remainingCredits,
+  onStartApparel,
+  onStartProduct,
+}: {
+  username: string | null;
+  remainingCredits: number;
+  onStartApparel: () => void;
+  onStartProduct: () => void;
+}) {
+  const welcomeName = username ? `, ${username}` : '';
+  const statusCards = [
+    {
+      label: 'Apparel queue',
+      value: 'Ready',
+      color: 'text-emerald-300',
+      glow: 'from-emerald-500/25 via-emerald-400/10 to-transparent',
+    },
+    {
+      label: 'Product queue',
+      value: 'Ready',
+      color: 'text-cyan-300',
+      glow: 'from-cyan-500/25 via-cyan-400/10 to-transparent',
+    },
+    {
+      label: 'Identity lock',
+      value: 'On',
+      color: 'text-fuchsia-300',
+      glow: 'from-fuchsia-500/25 via-fuchsia-400/10 to-transparent',
+    },
+    {
+      label: 'AI Director',
+      value: 'Online',
+      color: 'text-amber-200',
+      glow: 'from-amber-500/20 via-amber-400/10 to-transparent',
+    },
+  ];
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-violet-900/80 via-zinc-900/70 to-cyan-900/60 mb-8"
+    >
+      <div className="absolute inset-0">
+        <motion.div
+          className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-fuchsia-500/40 blur-3xl"
+          animate={{ scale: [1, 1.1, 0.95, 1], opacity: [0.4, 0.7, 0.5, 0.4] }}
+          transition={{ duration: 8, repeat: Infinity }}
+        />
+        <motion.div
+          className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-cyan-500/30 blur-3xl"
+          animate={{ x: [0, 40, -20, 0], opacity: [0.3, 0.6, 0.4, 0.3] }}
+          transition={{ duration: 10, repeat: Infinity }}
+        />
+        <motion.div
+          className="absolute inset-0 opacity-40"
+          style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.15), transparent 45%)' }}
+          animate={{ rotate: [0, 5, -5, 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </div>
+      <div className="relative z-10 px-6 py-8 md:px-10 md:py-12 grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+        <div className="space-y-3">
+          <p className="text-xs uppercase tracking-[0.4em] text-white/70 flex items-center gap-2">
+            <span className="inline-flex w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+            Welcome orbit
+          </p>
+          <h1 className="text-3xl md:text-4xl font-black text-white">
+            Welcome back{welcomeName}! <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-pink-300 to-cyan-200">Let’s make the camera jealous.</span>
+          </h1>
+          <p className="text-zinc-200 text-sm md:text-base">
+            Credits ready, studios standing by. Launch apparel or product mode to start generating scenes in seconds.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={onStartApparel}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white text-zinc-900 font-semibold shadow-xl shadow-white/20 hover:-translate-y-0.5 transition"
+            >
+              <Shirt size={16} />
+              Launch Apparel
+            </button>
+            <button
+              onClick={onStartProduct}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl border border-white/40 text-white hover:bg-white/10 transition"
+            >
+              <Package size={16} />
+              Launch Product
+            </button>
+          </div>
+        </div>
+        <div className="bg-black/30 rounded-2xl border border-white/10 p-5 backdrop-blur space-y-3">
+          <div className="flex items-center justify-between text-white">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-white/60">Credits</p>
+              <p className="text-3xl font-black">{remainingCredits.toLocaleString()}</p>
+            </div>
+            <span className="text-[11px] px-3 py-1 rounded-full bg-white/10 border border-white/30">
+              Live sync
+            </span>
+          </div>
+          <div className="space-y-2">
+            {[
+              { label: 'Studio uptime', color: 'bg-emerald-400', width: '92%' },
+              { label: 'Generation speed', color: 'bg-fuchsia-400', width: '88%' },
+              { label: 'Face lock stability', color: 'bg-cyan-300', width: '97%' },
+            ].map((bar) => (
+              <div key={bar.label}>
+                <div className="flex justify-between text-[11px] text-zinc-300">
+                  <span>{bar.label}</span>
+                  <span>Live</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <motion.div
+                    className={`h-full ${bar.color}`}
+                    animate={{ width: [bar.width, '100%', bar.width] }}
+                    transition={{ duration: 6, repeat: Infinity, repeatType: 'mirror' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm text-white">
+          {statusCards.map((item) => (
+            <div key={item.label} className="relative rounded-2xl border border-white/10 bg-black/20 p-4 overflow-hidden backdrop-blur">
+              <div className={`absolute inset-0 bg-gradient-to-br ${item.glow}`} aria-hidden="true" />
+              <div className="relative z-10 space-y-1">
+                <p className="text-[10px] uppercase tracking-[0.35em] text-white/50">{item.label}</p>
+                <div className="flex items-center gap-2">
+                  <span className={`text-lg font-semibold ${item.color}`}>{item.value}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/40 border border-white/20 text-white/70">Live</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.section>
   );
 }
 

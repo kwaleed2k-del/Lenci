@@ -32,6 +32,194 @@ import { costOf } from '../config/costs';
 import { newRequestId, recordUsageEvent } from '../services/usageService';
 import { SCOPES } from '../config/scopes';
 import { admin } from '../supabaseAdmin';
+import {
+	sendWelcome,
+	maybeNotifyLowCredit,
+	sendPaymentFailed,
+	sendTopupReceipt,
+	renderEmailPreview,
+	EmailPreviewKind
+} from '../services/emailService';
+import { listTopupOptions, isConfiguredPrice, creditsForPrice } from '../config/stripeTopups';
+import { grant as grantCredits } from '../services/creditService';
+import { getSettings as getAutoTopupSettings, upsertSettings, maybeAutoTopup } from '../services/autoTopupService';
+import { getConsent, setConsent } from '../services/marketingConsent';
+import { parseUnsubToken } from '../services/unsubToken';
+
+const EMAIL_WEBHOOK_SECRET = process.env.EMAIL_WEBHOOK_SECRET;
+const EMAIL_EVENT_TYPES = new Set(['welcome', 'low_credit', 'payment_failed', 'topup_receipt']);
+const SUPPRESSION_REASON_MAP = {
+	resend: {
+		'email.bounced': 'hard_bounce',
+		'email.complained': 'spam_complaint',
+		'email.unsubscribed': 'provider_unsub'
+	},
+	mailersend: {
+		'hard_bounce': 'hard_bounce',
+		'soft_bounce': 'hard_bounce',
+		'spam_complaint': 'spam_complaint',
+		'unsubscribe': 'provider_unsub'
+	}
+} as const;
+
+function getQueryString(value: unknown): string | null {
+	if (Array.isArray(value)) {
+		return value.length ? getQueryString(value[0]) : null;
+	}
+	if (typeof value === 'number' && Number.isFinite(value)) {
+		return String(value);
+	}
+	if (typeof value === 'string') {
+		const trimmed = value.trim();
+		return trimmed.length ? trimmed : null;
+	}
+	return null;
+}
+
+function parseNumberParam(value: unknown): number | null {
+	const str = getQueryString(value);
+	if (!str) return null;
+	const num = Number(str);
+	return Number.isFinite(num) ? num : null;
+}
+
+function parseCursorParam(value: unknown): string | null {
+	const str = getQueryString(value);
+	if (!str) return null;
+	return Number.isNaN(Date.parse(str)) ? null : str;
+}
+
+function getClientIp(req: express.Request): string | null {
+	const header = req.headers['x-forwarded-for'];
+	if (typeof header === 'string' && header.length > 0) {
+		return header.split(',')[0].trim();
+	}
+	if (Array.isArray(header) && header.length > 0) {
+		return header[0];
+	}
+	return req.ip || req.socket.remoteAddress || null;
+}
+
+function normalizeEmail(value: string): string {
+	return value.trim().toLowerCase();
+}
+
+type SuppressionEvent = {
+	email: string;
+	userId: string | null;
+	reason: string;
+	source: string;
+	details: unknown;
+};
+
+async function upsertSuppression(event: SuppressionEvent): Promise<void> {
+	const email = normalizeEmail(event.email);
+	if (!email) return;
+	await admin
+		.from('email_suppressions')
+		.upsert(
+			{
+				email,
+				user_id: event.userId ?? null,
+				reason: event.reason,
+				source: event.source,
+				details: event.details ?? {}
+			},
+			{
+				onConflict: 'email',
+				ignoreDuplicates: true
+			}
+		);
+}
+
+function extractSuppressionUserId(metadata: Record<string, unknown> | undefined): string | null {
+	if (!metadata) return null;
+	const candidates = [
+		metadata.user_id,
+		metadata.userId,
+		metadata['user-id'],
+		metadata['userID']
+	];
+	for (const candidate of candidates) {
+		if (typeof candidate === 'string' && candidate.length > 0) {
+			return candidate;
+		}
+	}
+	return null;
+}
+
+function normalizeResendEvent(payload: any): SuppressionEvent | null {
+	const type = payload?.type;
+	const map = SUPPRESSION_REASON_MAP.resend as Record<string, string>;
+	const reason = type && map[type];
+	const email = payload?.data?.email || payload?.email || payload?.to;
+	if (!reason || typeof email !== 'string') return null;
+	const userId = extractSuppressionUserId(payload?.data?.metadata);
+	return {
+		email,
+		userId,
+		reason,
+		source: 'resend',
+		details: payload
+	};
+}
+
+function normalizeMailerSendEvents(payload: any): SuppressionEvent[] {
+	const events = Array.isArray(payload?.events)
+		? payload.events
+		: Array.isArray(payload)
+		? payload
+		: [payload];
+	const map = SUPPRESSION_REASON_MAP.mailersend as Record<string, string>;
+	const out: SuppressionEvent[] = [];
+	for (const entry of events) {
+		const type = entry?.event || entry?.type;
+		const reason = type && map[type];
+		const email =
+			entry?.email ||
+			entry?.recipient ||
+			entry?.data?.email ||
+			entry?.data?.recipient;
+		if (!reason || typeof email !== 'string') continue;
+		out.push({
+			email,
+			userId: extractSuppressionUserId(entry?.metadata),
+			reason,
+			source: 'mailersend',
+			details: entry
+		});
+	}
+	return out;
+}
+
+function assertWebhookSecret(req: express.Request): void {
+	if (!EMAIL_WEBHOOK_SECRET) {
+		throw new UnauthenticatedError('webhook_secret_not_configured');
+	}
+	const provided = req.headers['x-provider-secret'];
+	if (
+		(typeof provided === 'string' && provided === EMAIL_WEBHOOK_SECRET) ||
+		(Array.isArray(provided) && provided[0] === EMAIL_WEBHOOK_SECRET)
+	) {
+		return;
+	}
+	throw new UnauthenticatedError('invalid_webhook_secret');
+}
+
+function parseRawJson(req: express.Request): any {
+	try {
+		if (Buffer.isBuffer(req.body)) {
+			const raw = req.body.toString('utf8');
+			return raw ? JSON.parse(raw) : {};
+		}
+		if (typeof req.body === 'string') {
+			return req.body ? JSON.parse(req.body) : {};
+		}
+		return req.body ?? {};
+	} catch {
+		throw new Error('invalid_json');
+	}
+}
 
 export const app = express();
 const PORT = Number.parseInt(process.env.API_PORT ?? '8787', 10);
@@ -72,11 +260,190 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 	}
 });
 
+app.post('/api/email/webhooks/resend', express.raw({ type: 'application/json' }), async (req, res) => {
+	try {
+		assertWebhookSecret(req);
+		const payload = parseRawJson(req);
+		const event = normalizeResendEvent(payload);
+		if (event) {
+			await upsertSuppression(event);
+		}
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ ok: true, processed: event ? 1 : 0 });
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		if (err instanceof UnauthenticatedError) {
+			return res.status(401).json({ error: 'unauthorized' });
+		}
+		const message = err?.message ?? 'invalid_payload';
+		const status = message === 'invalid_json' ? 400 : 500;
+		return res.status(status).json({ error: 'invalid_payload' });
+	}
+});
+
+app.post('/api/email/webhooks/mailersend', express.raw({ type: 'application/json' }), async (req, res) => {
+	try {
+		assertWebhookSecret(req);
+		const payload = parseRawJson(req);
+		const events = normalizeMailerSendEvents(payload);
+		for (const event of events) {
+			await upsertSuppression(event);
+		}
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ ok: true, processed: events.length });
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		if (err instanceof UnauthenticatedError) {
+			return res.status(401).json({ error: 'unauthorized' });
+		}
+		const message = err?.message ?? 'invalid_payload';
+		const status = message === 'invalid_json' ? 400 : 500;
+		return res.status(status).json({ error: 'invalid_payload' });
+	}
+});
+
 app.use(express.json({ limit: '1mb' }));
 
 // Health check
 app.get('/api/health', (_req, res) => {
 	res.json({ ok: true });
+});
+
+app.get('/api/me', async (req, res) => {
+	try {
+		const sessionUser = await getSessionUser(req, res);
+		const { data, error } = await admin
+			.from('users')
+			.select('id, email, display_name, marketing_opt_in, marketing_opt_in_at, marketing_opt_source')
+			.eq('id', sessionUser.id)
+			.single();
+		if (error || !data) {
+			throw new Error(error?.message ?? 'user_not_found');
+		}
+
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({
+			id: data.id,
+			email: data.email,
+			displayName: data.display_name,
+			marketingOptIn: Boolean(data.marketing_opt_in),
+			marketingOptInAt: data.marketing_opt_in_at,
+			marketingOptInSource: data.marketing_opt_source
+		});
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		const msg = String(err?.message ?? e ?? 'internal_error');
+		if (msg.includes('UNAUTHENTICATED')) {
+			return res.status(401).json({ error: 'unauthenticated' });
+		}
+		res.status(500).json({ error: 'internal_error' });
+	}
+});
+
+app.post('/api/me', async (req, res) => {
+	try {
+		const sessionUser = await getSessionUser(req, res);
+		const { marketingOptIn } = req.body ?? {};
+		let consent = null;
+		if (typeof marketingOptIn === 'boolean') {
+			consent = await setConsent(sessionUser.id, {
+				marketingOptIn,
+				source: 'profile',
+				ip: getClientIp(req) ?? undefined
+			});
+		}
+
+		if (!consent) {
+			consent = await getConsent(sessionUser.id);
+		}
+
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({
+			ok: true,
+			marketingOptIn: consent.marketingOptIn,
+			marketingOptInAt: consent.marketingOptInAt,
+			marketingOptInSource: consent.marketingOptInSource
+		});
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		const msg = String(err?.message ?? e ?? 'internal_error');
+		if (msg.includes('UNAUTHENTICATED')) {
+			return res.status(401).json({ error: 'unauthenticated' });
+		}
+		res.status(500).json({ error: 'internal_error' });
+	}
+});
+
+function unsubscribeHtmlMessage(message: string): string {
+	return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Manage email preferences</title>
+	<style>
+		body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #0b0b0f; color: #f4f4f5; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+		.card { background:#18181b; border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:32px; width:90%; max-width:420px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+		a { color:#a78bfa; text-decoration:none; }
+	</style>
+</head>
+<body>
+	<div class="card">
+		<h1 style="margin-top:0;">Email preferences</h1>
+		<p>${message}</p>
+		<p>
+			<a href="/billing">Manage preferences</a>
+		</p>
+	</div>
+</body>
+</html>
+	`.trim();
+}
+
+app.get('/api/email/unsubscribe', async (req, res) => {
+	try {
+		const token = getQueryString(req.query.token);
+		if (!token) {
+			return res.status(400).send(unsubscribeHtmlMessage('Missing unsubscribe token.'));
+		}
+		const { userId } = parseUnsubToken(token);
+		await setConsent(userId, { marketingOptIn: false });
+		res.setHeader('Cache-Control', 'no-store');
+		res.setHeader('Content-Type', 'text/html; charset=utf-8');
+		return res.send(
+			unsubscribeHtmlMessage("You're unsubscribed. You can manage preferences anytime from your billing page.")
+		);
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		const msg = String(err?.message ?? e ?? 'invalid_token');
+		res.setHeader('Cache-Control', 'no-store');
+		res.setHeader('Content-Type', 'text/html; charset=utf-8');
+		return res.status(400).send(unsubscribeHtmlMessage('Invalid or expired unsubscribe link.'));
+	}
+});
+
+app.post('/api/email/unsubscribe', async (req, res) => {
+	try {
+		const header = req.headers['list-unsubscribe'];
+		if (typeof header !== 'string' || header.toLowerCase() !== 'one-click') {
+			return res.status(400).json({ error: 'missing_list_unsubscribe_header' });
+		}
+		const token = typeof req.body?.token === 'string' ? req.body.token : null;
+		if (!token) {
+			return res.status(400).json({ error: 'invalid_token' });
+		}
+		const { userId } = parseUnsubToken(token);
+		await setConsent(userId, { marketingOptIn: false });
+		res.setHeader('Cache-Control', 'no-store');
+		return res.status(204).send();
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		const msg = String(err?.message ?? e ?? 'invalid_token');
+		if (msg === 'invalid_token' || msg === 'token_expired') {
+			return res.status(400).json({ error: 'invalid_token' });
+		}
+		res.status(500).json({ error: 'internal_error' });
+	}
 });
 
 if (process.env.NODE_ENV !== 'production') {
@@ -86,6 +453,23 @@ if (process.env.NODE_ENV !== 'production') {
 			return res.json({ ok: true, user });
 		} catch {
 			return res.status(401).json({ ok: false });
+		}
+	});
+
+	// Dev route to test welcome email
+	app.post('/api/dev/send-welcome', async (req, res) => {
+		try {
+			const user = await getSessionUser(req, res);
+			const status = await sendWelcome(user.id);
+			res.setHeader('Cache-Control', 'no-store');
+			return res.json({ ok: true, status });
+		} catch (e: unknown) {
+			const err = e as { message?: string };
+			if (String(err?.message).includes('UNAUTHENTICATED')) {
+				return res.status(401).json({ error: 'unauthenticated' });
+			}
+			console.error('[dev/send-welcome]', err);
+			return res.status(500).json({ error: String(err?.message ?? e ?? 'Internal server error') });
 		}
 	});
 }
@@ -547,6 +931,30 @@ app.post(
 				metadata: { promptLen: prompt.length, width, height }
 			});
 
+			// Best-effort low-credit notification (don't fail request on email errors)
+			// Fetch threshold and email preference from auto_topup_settings (defaults to 10 and true if not set)
+			getAutoTopupSettings(user.id)
+				.then(({ threshold, lowCreditEmailsEnabled }) => {
+					if (lowCreditEmailsEnabled) {
+						return maybeNotifyLowCredit(user.id, result.newBalance, threshold);
+					}
+					return Promise.resolve('skipped' as const);
+				})
+				.catch(() => {
+					// Default to enabled if settings fetch fails
+					return maybeNotifyLowCredit(user.id, result.newBalance, 10);
+				})
+				.catch((err) => {
+					console.error('[email] Low-credit notification failed:', err);
+				});
+
+			// Best-effort auto top-up (don't fail request on errors)
+			try {
+				await maybeAutoTopup(user.id, result.newBalance);
+			} catch (e) {
+				console.warn('[auto-topup] skipped:', e);
+			}
+
 			res.setHeader('Content-Type', 'image/png');
 			res.setHeader('Cache-Control', 'no-store');
 			res.setHeader('X-Usage-New-Balance', String(result.newBalance));
@@ -595,6 +1003,30 @@ app.post(
 				requestId: idKey,
 				metadata: { promptLen: prompt.length }
 			});
+
+			// Best-effort low-credit notification (don't fail request on email errors)
+			// Fetch threshold and email preference from auto_topup_settings (defaults to 10 and true if not set)
+			getAutoTopupSettings(user.id)
+				.then(({ threshold, lowCreditEmailsEnabled }) => {
+					if (lowCreditEmailsEnabled) {
+						return maybeNotifyLowCredit(user.id, result.newBalance, threshold);
+					}
+					return Promise.resolve('skipped' as const);
+				})
+				.catch(() => {
+					// Default to enabled if settings fetch fails
+					return maybeNotifyLowCredit(user.id, result.newBalance, 10);
+				})
+				.catch((err) => {
+					console.error('[email] Low-credit notification failed:', err);
+				});
+
+			// Best-effort auto top-up (don't fail request on errors)
+			try {
+				await maybeAutoTopup(user.id, result.newBalance);
+			} catch (e) {
+				console.warn('[auto-topup] skipped:', e);
+			}
 
 			res.setHeader('Content-Type', 'application/json');
 			res.setHeader('Cache-Control', 'no-store');
@@ -705,6 +1137,356 @@ app.get('/api/admin/analytics/usage.csv', requireAdmin, async (req, res) => {
 	}
 });
 
+app.get('/api/admin/emails', requireAdmin, async (req, res) => {
+	try {
+		const type = getQueryString(req.query.type);
+		if (type && !EMAIL_EVENT_TYPES.has(type)) {
+			return res.status(400).json({ error: 'invalid_type' });
+		}
+		const userId = getQueryString(req.query.userId);
+		const days = Math.max(1, Math.min(365, parseNumberParam(req.query.days) ?? 30));
+		const limit = Math.max(10, Math.min(200, parseNumberParam(req.query.limit) ?? 50));
+		const cursor = parseCursorParam(req.query.cursor);
+
+		const fromIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+		let query = admin
+			.from('email_events')
+			.select('id,user_id,type,language,created_at,payload')
+			.gte('created_at', fromIso)
+			.order('created_at', { ascending: false })
+			.order('id', { ascending: false })
+			.limit(limit + 1);
+
+		if (type) query = query.eq('type', type);
+		if (userId) query = query.eq('user_id', userId);
+		if (cursor) query = query.lt('created_at', cursor);
+
+		const { data, error } = await query;
+		if (error) throw error;
+
+		const rows = data ?? [];
+		const hasMore = rows.length > limit;
+		const items = hasMore ? rows.slice(0, limit) : rows;
+		const nextCursor = hasMore ? items[items.length - 1].created_at : null;
+
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({
+			items: items.map((row) => ({
+				id: row.id,
+				userId: row.user_id,
+				type: row.type,
+				language: row.language,
+				createdAt: row.created_at,
+				payload: row.payload ?? {}
+			})),
+			nextCursor
+		});
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		res.status(500).json({ error: String(err?.message ?? e ?? 'internal_error') });
+	}
+});
+
+app.get('/api/admin/emails.csv', requireAdmin, async (req, res) => {
+	try {
+		const type = getQueryString(req.query.type);
+		if (type && !EMAIL_EVENT_TYPES.has(type)) {
+			return res.status(400).json({ error: 'invalid_type' });
+		}
+		const userId = getQueryString(req.query.userId);
+		const days = Math.max(1, Math.min(365, parseNumberParam(req.query.days) ?? 30));
+		const limit = Math.max(10, Math.min(500, parseNumberParam(req.query.limit) ?? 200));
+		const cursor = parseCursorParam(req.query.cursor);
+
+		const fromIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+		let query = admin
+			.from('email_events')
+			.select('id,user_id,type,language,created_at,payload')
+			.gte('created_at', fromIso)
+			.order('created_at', { ascending: false })
+			.order('id', { ascending: false })
+			.limit(limit);
+
+		if (type) query = query.eq('type', type);
+		if (userId) query = query.eq('user_id', userId);
+		if (cursor) query = query.lt('created_at', cursor);
+
+		const { data, error } = await query;
+		if (error) throw error;
+
+		const rows = data ?? [];
+		const header =
+			'id,user_id,type,language,created_at,amount_cents,currency,credits,stripe_object_id,receipt_url';
+		const csvLines = rows.map((row) => {
+			const payload = (row.payload ?? {}) as Record<string, unknown>;
+			const amount =
+				parseNumberParam(payload.amount_cents) ??
+				parseNumberParam(payload.amount_due_cents) ??
+				parseNumberParam(payload.amount_due);
+			const credits =
+				parseNumberParam(payload.credits) ?? parseNumberParam(payload.balance) ?? null;
+			const currency = getQueryString(payload.currency) ?? '';
+			const stripeObjectId = getQueryString(payload.stripe_object_id) ?? '';
+			const receiptUrl = getQueryString(payload.receipt_url) ?? '';
+
+			return [
+				row.id,
+				row.user_id,
+				row.type,
+				row.language,
+				row.created_at,
+				amount ?? '',
+				currency,
+				credits ?? '',
+				stripeObjectId,
+				receiptUrl
+			]
+				.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+				.join(',');
+		});
+
+		res.setHeader('Cache-Control', 'no-store');
+		res.setHeader('Content-Type', 'text/csv');
+		return res.send([header, ...csvLines].join('\n'));
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		res.status(500).json({ error: String(err?.message ?? e ?? 'internal_error') });
+	}
+});
+
+app.get('/api/admin/email-preview', requireAdmin, async (req, res) => {
+	try {
+		const kind = getQueryString(req.query.kind) as EmailPreviewKind | null;
+		if (!kind || !EMAIL_EVENT_TYPES.has(kind)) {
+			return res.status(400).json({ error: 'invalid_kind' });
+		}
+
+		const userId = getQueryString(req.query.userId);
+		if ((kind === 'welcome' || kind === 'low_credit') && !userId) {
+			return res.status(400).json({ error: 'user_required' });
+		}
+
+		const preview = await renderEmailPreview({
+			kind,
+			userId: userId ?? undefined,
+			amountCents: parseNumberParam(req.query.amountCents) ?? undefined,
+			currency: getQueryString(req.query.currency) ?? undefined,
+			credits: parseNumberParam(req.query.credits) ?? undefined,
+			receiptUrl: getQueryString(req.query.receiptUrl) ?? undefined,
+			invoiceNumber: getQueryString(req.query.invoiceNumber) ?? undefined,
+			balance: parseNumberParam(req.query.balance) ?? undefined,
+			receiptKind: getQueryString(req.query.receiptKind) === 'topup_auto' ? 'topup_auto' : 'topup'
+		});
+
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ ok: true, ...preview });
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		const message = String(err?.message ?? e ?? 'internal_error');
+		if (message === 'user_required') {
+			return res.status(400).json({ error: 'user_required' });
+		}
+		if (message === 'unsupported_kind' || message === 'invalid_kind') {
+			return res.status(400).json({ error: 'invalid_kind' });
+		}
+		res.status(500).json({ error: 'internal_error' });
+	}
+});
+
+app.get('/api/admin/email-jobs', requireAdmin, async (req, res) => {
+	try {
+		const status = getQueryString(req.query.status);
+		const template = getQueryString(req.query.template);
+		const email = getQueryString(req.query.email);
+		const days = Math.min(365, Math.max(1, parseNumberParam(req.query.days) ?? 90));
+		const limit = Math.min(200, Math.max(10, parseNumberParam(req.query.limit) ?? 50));
+		const cursor = parseCursorParam(req.query.cursor);
+
+		const baseQuery = admin
+			.from('email_jobs')
+			.select(
+				'id,user_id,to_email,category,template,subject,status,attempts,max_attempts,last_error,run_at,sent_at,created_at'
+			)
+			.order('run_at', { ascending: false })
+			.limit(limit + 1);
+
+		let query = baseQuery.gte('created_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
+		if (status && status !== 'all') query = query.eq('status', status);
+		if (template && template !== 'all') query = query.eq('template', template);
+		if (email) query = query.eq('to_email', email.toLowerCase());
+		if (cursor) query = query.lt('run_at', cursor);
+
+		const { data, error } = await query;
+		if (error) throw error;
+		const rows = data ?? [];
+		const hasMore = rows.length > limit;
+		const items = hasMore ? rows.slice(0, limit) : rows;
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({
+			items: items.map((row) => ({
+				id: row.id,
+				userId: row.user_id,
+				toEmail: row.to_email,
+				category: row.category,
+				template: row.template,
+				subject: row.subject,
+				status: row.status,
+				attempts: row.attempts,
+				maxAttempts: row.max_attempts,
+				lastError: row.last_error,
+				runAt: row.run_at,
+				createdAt: row.created_at,
+				sentAt: row.sent_at
+			})),
+			nextCursor: hasMore ? items[items.length - 1].runAt : null
+		});
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		res.status(500).json({ error: String(err?.message ?? e ?? 'internal_error') });
+	}
+});
+
+app.post('/api/admin/email-jobs/:id/retry', requireAdmin, async (req, res) => {
+	try {
+		const jobId = req.params.id;
+		if (!jobId) return res.status(400).json({ error: 'missing_id' });
+		const { data, error } = await admin
+			.from('email_jobs')
+			.update({
+				status: 'pending',
+				attempts: 0,
+				run_at: new Date().toISOString(),
+				last_error: null
+			})
+			.eq('id', jobId)
+			.select('id')
+			.single();
+		if (error) throw error;
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ ok: true, id: data!.id });
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		res.status(500).json({ error: String(err?.message ?? e ?? 'internal_error') });
+	}
+});
+
+app.delete('/api/admin/email-jobs/:id', requireAdmin, async (req, res) => {
+	try {
+		const jobId = req.params.id;
+		if (!jobId) return res.status(400).json({ error: 'missing_id' });
+		const { error } = await admin.from('email_jobs').delete().eq('id', jobId);
+		if (error) throw error;
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ ok: true });
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		res.status(500).json({ error: String(err?.message ?? e ?? 'internal_error') });
+	}
+});
+
+app.post('/api/admin/email-jobs/tick', requireAdmin, async (req, res) => {
+	try {
+		const limit = Math.min(100, Math.max(1, parseNumberParam(req.query.limit) ?? 50));
+		const jobs = await claimDueJobs(limit);
+		let sent = 0;
+		let retried = 0;
+		let dead = 0;
+		for (const job of jobs) {
+			try {
+				// worker logic will be added next prompt; mark as sent for now
+				await markSent(job.id);
+				sent += 1;
+			} catch (err) {
+				if (job.attempts + 1 >= job.max_attempts) {
+					await markDead(job.id, err);
+					dead += 1;
+				} else {
+					await markRetry(job.id, err, job.attempts + 1);
+					retried += 1;
+				}
+			}
+		}
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({
+			processed: jobs.length,
+			sent,
+			retried,
+			dead
+		});
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		res.status(500).json({ error: String(err?.message ?? e ?? 'internal_error') });
+	}
+});
+
+app.get('/api/admin/suppressions', requireAdmin, async (req, res) => {
+	try {
+		const emailFilter = getQueryString(req.query.email);
+		const reasonFilter = getQueryString(req.query.reason);
+		const sourceFilter = getQueryString(req.query.source);
+		const days = Math.max(1, Math.min(365, parseNumberParam(req.query.days) ?? 180));
+		const limit = Math.max(10, Math.min(200, parseNumberParam(req.query.limit) ?? 50));
+		const cursor = parseCursorParam(req.query.cursor);
+
+		const fromIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+		let query = admin
+			.from('email_suppressions')
+			.select('id,user_id,email,reason,source,created_at,details')
+			.gte('created_at', fromIso)
+			.order('created_at', { ascending: false })
+			.order('id', { ascending: false })
+			.limit(limit + 1);
+
+		if (emailFilter) query = query.eq('email', normalizeEmail(emailFilter));
+		if (reasonFilter) query = query.eq('reason', reasonFilter);
+		if (sourceFilter) query = query.eq('source', sourceFilter);
+		if (cursor) query = query.lt('created_at', cursor);
+
+		const { data, error } = await query;
+		if (error) throw error;
+
+		const rows = data ?? [];
+		const hasMore = rows.length > limit;
+		const items = hasMore ? rows.slice(0, limit) : rows;
+		const nextCursor = hasMore ? items[items.length - 1].created_at : null;
+
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({
+			items: items.map((row) => ({
+				id: row.id,
+				userId: row.user_id,
+				email: row.email,
+				reason: row.reason,
+				source: row.source,
+				createdAt: row.created_at,
+				details: row.details ?? {}
+			})),
+			nextCursor
+		});
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		res.status(500).json({ error: String(err?.message ?? e ?? 'internal_error') });
+	}
+});
+
+app.delete('/api/admin/suppressions/:id', requireAdmin, async (req, res) => {
+	try {
+		const id = req.params.id;
+		if (!id) {
+			return res.status(400).json({ error: 'invalid_id' });
+		}
+		const { error } = await admin.from('email_suppressions').delete().eq('id', id);
+		if (error) throw error;
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ ok: true });
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		res.status(500).json({ error: String(err?.message ?? e ?? 'internal_error') });
+	}
+});
 // POST /api/stripe/checkout
 app.post('/api/stripe/checkout', async (req, res) => {
 	try {
@@ -750,6 +1532,138 @@ app.post('/api/stripe/portal', async (req, res) => {
 			return res.status(401).json({ error: 'unauthenticated' });
 		}
 		res.status(500).json({ error: String(err?.message ?? e ?? 'Internal server error') });
+	}
+});
+
+// GET /api/billing/topup/options
+app.get('/api/billing/topup/options', async (req, res) => {
+	try {
+		await getSessionUser(req, res); // just to ensure 401 if not logged in
+		const options = await listTopupOptions();
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ options });
+	} catch (e: unknown) {
+		const err = e as { message?: string; code?: string };
+		const s = err?.code === 'UNAUTHENTICATED' || String(err?.message).includes('UNAUTHENTICATED') ? 401 : 500;
+		return res.status(s).json({ error: s === 401 ? 'unauthenticated' : 'internal_error' });
+	}
+});
+
+// POST /api/stripe/topup/checkout
+app.post('/api/stripe/topup/checkout', async (req, res) => {
+	try {
+		const user = await getSessionUser(req, res);
+		const { priceId, successUrl, cancelUrl } = req.body ?? {};
+		if (typeof priceId !== 'string' || !isConfiguredPrice(priceId)) {
+			return res.status(400).json({ error: 'invalid_price' });
+		}
+		if (typeof successUrl !== 'string' || typeof cancelUrl !== 'string') {
+			return res.status(400).json({ error: 'invalid_urls' });
+		}
+		const customerId = await ensureStripeCustomer(user.id, user.email);
+		const session = await stripe.checkout.sessions.create({
+			mode: 'payment',
+			customer: customerId,
+			success_url: successUrl,
+			cancel_url: cancelUrl,
+			line_items: [{ price: priceId, quantity: 1 }],
+			metadata: { kind: 'topup', user_id: user.id }
+		});
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ url: session.url });
+	} catch (e: unknown) {
+		const err = e as { message?: string };
+		console.error('[topup.checkout] err:', err?.message ?? e);
+		if (String(err?.message).includes('UNAUTHENTICATED')) {
+			return res.status(401).json({ error: 'unauthenticated' });
+		}
+		return res.status(500).json({ error: 'internal_error' });
+	}
+});
+
+// GET /api/billing/auto-topup
+app.get('/api/billing/auto-topup', async (req, res) => {
+	try {
+		const u = await getSessionUser(req, res);
+		const s = await getSettings(u.id);
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ settings: s });
+	} catch (e: unknown) {
+		const err = e as { message?: string; code?: string };
+		const s =
+			err?.code === 'UNAUTHENTICATED' || String(err?.message).includes('UNAUTHENTICATED') ? 401 : 500;
+		return res.status(s).json({ error: s === 401 ? 'unauthenticated' : 'internal_error' });
+	}
+});
+
+// POST /api/billing/auto-topup
+app.post('/api/billing/auto-topup', async (req, res) => {
+	try {
+		const u = await getSessionUser(req, res);
+		const { enabled, priceId, threshold, lowCreditEmailsEnabled } = req.body ?? {};
+		const s = await upsertSettings(u.id, { enabled, priceId, threshold, lowCreditEmailsEnabled });
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ settings: s });
+	} catch (e: unknown) {
+		const err = e as { message?: string; code?: string };
+		const msg = String(err?.message ?? e);
+		const s = msg.includes('invalid_price_id')
+			? 400
+			: err?.code === 'UNAUTHENTICATED' || msg.includes('UNAUTHENTICATED')
+				? 401
+				: 500;
+		return res
+			.status(s)
+			.json({ error: s === 400 ? 'invalid_price_id' : s === 401 ? 'unauthenticated' : 'internal_error' });
+	}
+});
+
+// GET /api/billing/purchases
+app.get('/api/billing/purchases', async (req, res) => {
+	try {
+		const user = await getSessionUser(req, res);
+		const daysParam = req.query.days ? Number.parseInt(String(req.query.days), 10) : 30;
+		const limitParam = req.query.limit ? Number.parseInt(String(req.query.limit), 10) : 50;
+
+		const days = Math.max(7, Math.min(365, Number.isFinite(daysParam) ? daysParam : 30));
+		const limit = Math.max(10, Math.min(200, Number.isFinite(limitParam) ? limitParam : 50));
+
+		const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+		const to = new Date().toISOString();
+
+		const { data: events, error } = await admin
+			.from('billing_events')
+			.select('created_at, type, payload')
+			.eq('user_id', user.id)
+			.in('type', ['topup', 'topup_auto'])
+			.gte('created_at', from)
+			.lte('created_at', to)
+			.order('created_at', { ascending: false })
+			.limit(limit);
+
+		if (error) {
+			throw new Error(error.message);
+		}
+
+		const purchases = (events || []).map((event) => {
+			const payload = (event.payload as any) || {};
+			return {
+				at: event.created_at,
+				kind: event.type === 'topup_auto' ? ('topup_auto' as const) : ('topup' as const),
+				credits: payload.credits ?? null,
+				amountCents: payload.amount_cents ?? null,
+				currency: payload.currency ?? null,
+				receiptUrl: payload.receipt_url ?? null
+			};
+		});
+
+		res.setHeader('Cache-Control', 'no-store');
+		return res.json({ from, to, purchases });
+	} catch (e: unknown) {
+		const err = e as { message?: string; code?: string };
+		const s =
+			err?.code === 'UNAUTHENTICATED' || String(err?.message).includes('UNAUTHENTICATED') ? 401 : 500;
+		return res.status(s).json({ error: s === 401 ? 'unauthenticated' : 'internal_error' });
 	}
 });
 
@@ -817,6 +1731,15 @@ async function handleStripeEvent(type: string, data: any, inferredUserId: string
 		case 'customer.subscription.deleted':
 			await handleSubscriptionEvent(data as Stripe.Subscription, inferredUserId);
 			break;
+		case 'invoice.payment_failed':
+			await handleInvoicePaymentFailed(data as Stripe.Invoice, inferredUserId);
+			break;
+		case 'payment_intent.succeeded':
+			await handlePaymentIntentSucceeded(data as Stripe.PaymentIntent, inferredUserId);
+			break;
+		case 'payment_intent.payment_failed':
+			await handlePaymentIntentFailed(data as Stripe.PaymentIntent, inferredUserId);
+			break;
 		default:
 			break;
 	}
@@ -827,6 +1750,14 @@ async function handleCheckoutSessionEvent(sessionData: Stripe.Checkout.Session, 
 		const session = await stripe.checkout.sessions.retrieve(sessionData.id, {
 			expand: ['line_items', 'subscription']
 		});
+
+		// Handle top-up payments (mode: payment, kind: topup)
+		if (session.mode === 'payment' && session.metadata?.kind === 'topup') {
+			await handleCheckoutCompletedTopup(session);
+			return;
+		}
+
+		// Handle subscription checkouts (mode: subscription)
 		const userId =
 			session.client_reference_id ??
 			session.metadata?.user_id ??
@@ -857,6 +1788,105 @@ async function handleCheckoutSessionEvent(sessionData: Stripe.Checkout.Session, 
 	}
 }
 
+async function handleCheckoutCompletedTopup(session: Stripe.Checkout.Session) {
+	try {
+		const kind = session.metadata?.kind;
+		if (session.mode !== 'payment' || kind !== 'topup') return;
+
+		const userId =
+			(session.metadata?.user_id as string) ||
+			(await findUserIdByCustomer(session.customer as string | undefined));
+
+		// line items may not be expanded; fetch explicitly
+		const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+			limit: 1,
+			expand: ['data.price']
+		});
+		const priceId =
+			(lineItems.data[0]?.price as Stripe.Price | undefined)?.id ||
+			(session.metadata?.price_id as string) ||
+			'';
+
+		const credits = priceId ? creditsForPrice(priceId) : null;
+
+		if (!userId || !priceId || !credits) {
+			console.warn('[topup] Missing required data', { userId, priceId, credits });
+			return;
+		}
+
+		// Fetch PaymentIntent and Charge to get amount, currency, receipt_url
+		let amount: number | null = null;
+		let currency: string | null = null;
+		let receiptUrl: string | null = null;
+
+		if (session.payment_intent) {
+			try {
+				const pi = await stripe.paymentIntents.retrieve(session.payment_intent as string, {
+					expand: ['latest_charge']
+				});
+				amount = pi.amount ?? null;
+				currency = pi.currency ?? null;
+				const charge = pi.latest_charge as Stripe.Charge | null;
+				if (charge && 'receipt_url' in charge) {
+					receiptUrl = (charge as any).receipt_url as string | null;
+				}
+			} catch (err) {
+				console.warn('[topup] Failed to fetch PaymentIntent details:', err);
+			}
+		}
+
+		// billing_events unique index on stripe_object_id dedupes
+		const enrichedPayload = {
+			...session,
+			amount_cents: amount,
+			currency,
+			receipt_url: receiptUrl,
+			credits,
+			price_id: priceId
+		};
+
+		const { error: billingError } = await admin.from('billing_events').insert({
+			type: 'topup',
+			stripe_object_id: session.id,
+			user_id: userId,
+			payload: enrichedPayload
+		});
+
+		if (billingError) {
+			// Check if it's a unique constraint violation (already processed)
+			if (
+				billingError.message?.includes('billing_events_stripe_unique_idx') ||
+				billingError.code === '23505'
+			) {
+				console.log('[topup] Already processed', session.id);
+				return;
+			}
+			throw billingError;
+		}
+
+		// Grant credits
+		await grantCredits(userId, credits, 'topup', {
+			price_id: priceId,
+			session_id: session.id
+		});
+
+		// Send receipt email (idempotent via email_events unique index)
+		await sendTopupReceipt({
+			userId,
+			stripeObjectId: session.id,
+			amountCents: amount,
+			currency,
+			credits,
+			receiptUrl,
+			kind: 'topup'
+		}).catch((err) => {
+			console.error('[topup] Failed to send receipt email:', err);
+		});
+	} catch (error) {
+		console.error('[topup] Failed to handle top-up checkout', error);
+	}
+}
+
 async function handleSubscriptionEvent(subscriptionData: Stripe.Subscription, fallbackUserId: string | null) {
 	try {
 		const subscription = await stripe.subscriptions.retrieve(subscriptionData.id);
@@ -879,6 +1909,168 @@ async function handleSubscriptionEvent(subscriptionData: Stripe.Subscription, fa
 		});
 	} catch (error) {
 		console.error('Failed to handle subscription event', error);
+	}
+}
+
+async function handleInvoicePaymentFailed(invoiceData: Stripe.Invoice, fallbackUserId: string | null) {
+	try {
+		const invoice = await stripe.invoices.retrieve(invoiceData.id);
+		const userId =
+			invoice.metadata?.user_id ??
+			fallbackUserId ??
+			(await findUserIdByCustomer(invoice.customer as string | undefined));
+
+		if (!userId) {
+			console.warn('[email] Could not resolve userId for invoice.payment_failed', invoice.id);
+			return;
+		}
+
+		// Best-effort email (don't fail webhook on email errors)
+		await sendPaymentFailed(userId, invoice.id, invoice.amount_due ?? 0).catch((err) => {
+			console.error('[email] Payment failed notification error:', err);
+		});
+	} catch (error) {
+		console.error('Failed to handle invoice.payment_failed event', error);
+	}
+}
+
+async function handlePaymentIntentSucceeded(
+	piData: Stripe.PaymentIntent,
+	fallbackUserId: string | null
+) {
+	try {
+		const pi = await stripe.paymentIntents.retrieve(piData.id);
+		const kind = pi.metadata?.kind;
+
+		if (kind !== 'topup_auto') return;
+
+		const userId = (pi.metadata?.user_id as string) || fallbackUserId || (await findUserIdByCustomer(pi.customer as string | undefined));
+
+		if (!userId) {
+			console.warn('[auto-topup] Could not resolve userId for payment_intent.succeeded', pi.id);
+			return;
+		}
+
+		const priceId = (pi.metadata?.price_id as string) || '';
+		const credits = priceId ? creditsForPrice(priceId) : null;
+
+		if (!priceId || !credits) {
+			console.warn('[auto-topup] Missing price_id or credits', { priceId, credits });
+			return;
+		}
+
+		// Fetch Charge to get receipt_url
+		let amount: number | null = pi.amount ?? null;
+		let currency: string | null = pi.currency ?? null;
+		let receiptUrl: string | null = null;
+
+		try {
+			const expandedPi = await stripe.paymentIntents.retrieve(pi.id, {
+				expand: ['latest_charge']
+			});
+			amount = expandedPi.amount ?? null;
+			currency = expandedPi.currency ?? null;
+			const charge = expandedPi.latest_charge as Stripe.Charge | null;
+			if (charge && 'receipt_url' in charge) {
+				receiptUrl = (charge as any).receipt_url as string | null;
+			}
+		} catch (err) {
+			console.warn('[auto-topup] Failed to fetch Charge details:', err);
+		}
+
+		// Idempotently log event (unique stripe_object_id prevents duplicates)
+		const enrichedPayload = {
+			...pi,
+			amount_cents: amount,
+			currency,
+			receipt_url: receiptUrl,
+			credits,
+			price_id: priceId
+		};
+
+		const { error: billingError } = await admin.from('billing_events').insert({
+			type: 'topup_auto',
+			stripe_object_id: pi.id,
+			user_id: userId,
+			payload: enrichedPayload
+		});
+
+		if (billingError) {
+			// Check if it's a unique constraint violation (already processed)
+			if (
+				billingError.message?.includes('billing_events_stripe_unique_idx') ||
+				billingError.code === '23505'
+			) {
+				console.log('[auto-topup] Already processed', pi.id);
+				return;
+			}
+			throw billingError;
+		}
+
+		// Grant credits
+		await grantCredits(userId, credits, 'topup_auto', {
+			price_id: priceId,
+			payment_intent_id: pi.id
+		});
+
+		// Send receipt email (idempotent via email_events unique index)
+		await sendTopupReceipt({
+			userId,
+			stripeObjectId: pi.id,
+			amountCents: amount,
+			currency,
+			credits,
+			receiptUrl,
+			kind: 'topup_auto'
+		}).catch((err) => {
+			console.error('[auto-topup] Failed to send receipt email:', err);
+		});
+	} catch (error) {
+		console.error('[auto-topup] Failed to handle payment_intent.succeeded', error);
+	}
+}
+
+async function handlePaymentIntentFailed(piData: Stripe.PaymentIntent, fallbackUserId: string | null) {
+	try {
+		const pi = await stripe.paymentIntents.retrieve(piData.id);
+		const kind = pi.metadata?.kind;
+
+		if (kind !== 'topup_auto') return;
+
+		const userId = (pi.metadata?.user_id as string) || fallbackUserId || (await findUserIdByCustomer(pi.customer as string | undefined));
+
+		if (!userId) {
+			console.warn('[auto-topup] Could not resolve userId for payment_intent.payment_failed', pi.id);
+			return;
+		}
+
+		// Log failure event (idempotent via unique stripe_object_id)
+		const { error: billingError } = await admin.from('billing_events').insert({
+			type: 'topup_auto_failed',
+			stripe_object_id: pi.id,
+			user_id: userId,
+			payload: pi
+		});
+
+		if (billingError) {
+			// Already logged, skip
+			if (
+				billingError.message?.includes('billing_events_stripe_unique_idx') ||
+				billingError.code === '23505'
+			) {
+				return;
+			}
+			throw billingError;
+		}
+
+		// Optionally send payment failed email
+		if (pi.amount) {
+			await sendPaymentFailed(userId, pi.id, pi.amount).catch((err) => {
+				console.error('[email] Auto top-up payment failed notification error:', err);
+			});
+		}
+	} catch (error) {
+		console.error('[auto-topup] Failed to handle payment_intent.payment_failed', error);
 	}
 }
 

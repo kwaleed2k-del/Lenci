@@ -1,12 +1,11 @@
 /**
  * Stripe service utilities (server-only).
  */
-import Stripe from 'stripe';
+import { stripe } from '@/lib/stripe';
 import { admin } from '../supabaseAdmin';
 import type { PlanCode } from '../config/plans';
 import { PRICE_TO_PLAN, planForPrice } from '../config/stripeProducts';
 
-const STRIPE_SECRET_KEY = requireEnv('STRIPE_SECRET_KEY');
 const STRIPE_WEBHOOK_SECRET = requireEnv('STRIPE_WEBHOOK_SECRET');
 
 function requireEnv(name: string): string {
@@ -16,10 +15,6 @@ function requireEnv(name: string): string {
 	}
 	return value;
 }
-
-export const stripe = new Stripe(STRIPE_SECRET_KEY, {
-	apiVersion: '2023-10-16'
-});
 
 export async function ensureStripeCustomer(userId: string, email?: string | null): Promise<string> {
 	const existing = await admin
@@ -115,5 +110,6 @@ export function verifyStripeSignature(req: import('express').Request) {
 }
 
 export { planForPrice };
+export { stripe };
 
 

@@ -43,4 +43,20 @@ export async function openPortal(): Promise<void> {
 	window.location.href = data.url;
 }
 
+export async function startTopup(priceId: string): Promise<void> {
+	const loc = window.location;
+	const successUrl = `${loc.origin}/billing?purchase=success`;
+	const cancelUrl = `${loc.origin}/billing?purchase=cancel`;
+	const r = await fetch('/api/stripe/topup/checkout', {
+		method: 'POST',
+		credentials: 'include',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ priceId, successUrl, cancelUrl })
+	});
+	if (!r.ok) throw new Error('Failed to start checkout');
+	const j = await r.json();
+	if (!j.url) throw new Error('Missing checkout URL');
+	window.location.href = j.url;
+}
+
 

@@ -5,8 +5,8 @@
  * Server-only endpoint; requires authentication.
  */
 import { NextResponse } from 'next/server';
-import { getSessionUser } from '@/src/server/auth';
-import { admin } from '@/src/server/supabaseAdmin';
+import { getSessionUser } from '@/server/auth';
+import { admin } from '@/server/supabaseAdmin';
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.max(min, Math.min(max, value));

@@ -4,8 +4,8 @@
  * Server-only endpoint; requires authentication.
  */
 import { NextResponse } from 'next/server';
-import { getSessionUser } from '@/src/server/auth';
-import { getBalance } from '@/src/server/services/creditService';
+import { getSessionUser } from '@/server/auth';
+import { getBalance } from '@/server/services/creditService';
 
 export async function GET() {
 	try {

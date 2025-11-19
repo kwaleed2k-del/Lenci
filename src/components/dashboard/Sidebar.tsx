@@ -45,14 +45,40 @@ export function Sidebar() {
 					</a>
 				))}
 				{features.admin && (
-					<a
-						href="/admin"
-						className="flex items-center gap-3 px-3 py-2 rounded-md text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
-						aria-label="Admin"
-					>
-						<Shield size={18} />
-						<span className="text-sm">Admin</span>
-					</a>
+					<>
+						<a
+							href="/admin"
+							className="flex items-center gap-3 px-3 py-2 rounded-md text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
+							aria-label="Admin"
+						>
+							<Shield size={18} />
+							<span className="text-sm">Admin overview</span>
+						</a>
+						<a
+							href="/admin/email-log"
+							className="flex items-center gap-3 px-3 py-2 rounded-md text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
+							aria-label="Admin Email Log"
+						>
+							<Shield size={18} />
+							<span className="text-sm">Admin → Email Log</span>
+						</a>
+						<a
+							href="/admin/email-jobs"
+							className="flex items-center gap-3 px-3 py-2 rounded-md text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
+							aria-label="Admin Email Jobs"
+						>
+							<Shield size={18} />
+							<span className="text-sm">Admin → Email Jobs</span>
+						</a>
+						<a
+							href="/admin/suppressions"
+							className="flex items-center gap-3 px-3 py-2 rounded-md text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors"
+							aria-label="Admin Suppressions"
+						>
+							<Shield size={18} />
+							<span className="text-sm">Admin → Suppressions</span>
+						</a>
+					</>
 				)}
 			</nav>
 			<div className="mt-auto px-3 pb-4">

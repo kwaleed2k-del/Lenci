@@ -64,3 +64,22 @@ These tools enhance every workflow, providing professional-grade efficiency and 
 *   **Generative Video:** Bring your static images to life. Animate your final creations with subtle motion, perfect for product pages and social media ads.
 *   **AI Post-Production Suite:** Your final image is just the beginning. Apply professional color grades, add a subtle film grain, or use the **Generative Edit** tool to make fine-tuned changes with a simple text prompt.
 *   **"Looks" & Scene Templating:** Save any combination of settings—camera, lighting, background, props—as a reusable "Look." Apply it to any new product or model for perfect brand consistency with a single click.
+
+## 🔐 Internal Billing Sanity Checks
+
+Before flipping on paid flows, run the Stripe/Credits sanity tools:
+
+- CLI: `pnpm stripe:sanity`
+- API: `curl -H "X-Admin-Token: $INTERNAL_ADMIN_TOKEN" http://localhost:3000/api/_internal/stripe-sanity`
+
+The CLI shares logic with the API route and exits non-zero if any required env, DB constraint, or active credit package mapping fails validation.
+
+## 💳 Buying Credit Packages
+
+- Set `APP_BASE_URL` (e.g. `http://localhost:3000` in `.env.local`) so checkout redirects resolve correctly.
+- Seed defaults: `pnpm seed:credit-packages`, then enable a package + add a Stripe Price ID via `/admin/credit-packages`.
+- Local Stripe test flow:
+  1. `stripe login`
+  2. `stripe listen --forward-to http://localhost:3000/api/stripe/webhooks`
+  3. Visit `/billing/credits`, click **Buy**, complete checkout with `4242 4242 4242 4242`.
+  4. Credits are granted via the webhook once Stripe confirms payment; resend events with `stripe events resend <evt_id>` to verify idempotency.
